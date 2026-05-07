@@ -1,9 +1,9 @@
-// frontend/src/pages/Register.jsx
+//frontend/src/pages/auth/Register.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db } from '../../firebase';
 
 const Register = () => {
   //state variables!

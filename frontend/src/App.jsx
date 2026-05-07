@@ -1,21 +1,29 @@
 // frontend/src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Register from './pages/Register';
+
+// 1. Updated Auth Imports
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+
+// 2. Updated User Imports
+import Dashboard from './pages/user/Dashboard';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* We use Navigate to redirect the base URL directly to the login page */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         
-        {/* Define the paths for our new pages */}
+        {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
-        {/* Catch-all route for URLs that don't exist */}
-        <Route path="*" element={<h1 className="text-center mt-20 text-2xl">404 - Page Not Found</h1>} />
+        {/* User Routes */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        
+        <Route path="*" element={<h1 className="text-center mt-20 text-2xl font-bold text-gray-700">404 - Page Not Found</h1>} />
       </Routes>
     </BrowserRouter>
   );

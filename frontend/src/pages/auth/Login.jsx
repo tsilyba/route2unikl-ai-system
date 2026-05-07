@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import {auth, db} from '../../firebase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -60,6 +60,17 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+          </div>
+
+          {/*Forgot Password Link*/ }
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              {/* Added the Forgot Password Link here! */}
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           {/* Submit Button */}
