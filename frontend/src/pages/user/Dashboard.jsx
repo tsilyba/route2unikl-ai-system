@@ -1,77 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase';  // Import db from firebase.js
-import { collection, getDocs } from 'firebase/firestore';  // Import necessary Firestore functions
+import { db } from '../../firebase'; 
+import { collection, getDocs } from 'firebase/firestore'; 
+import { useNavigate } from 'react-router-dom'; // 1. Added this import
 
 const Dashboard = () => {
-  const [programs, setPrograms] = useState([]);  // State to store the programs
-  const [loading, setLoading] = useState(true);  // State to track loading status
-  const [error, setError] = useState(null);  // State to store any errors
+  const [programs, setPrograms] = useState([]); 
+  const [loading, setLoading] = useState(true); 
+  const [error, setError] = useState(null);
+  
+  const navigate = useNavigate(); // 2. Initialized the navigate hook
 
   useEffect(() => {
-    // Fetch programs from Firestore when the component mounts
     const fetchPrograms = async () => {
       try {
-        // Fetch data from the Firestore 'programs' collection
-        const querySnapshot = await getDocs(collection(db, 'programs'));  // Get programs collection from Firestore
+        // 3. Ensure this matches your Firestore collection name ('unikl_programs' or 'programs')
+        const querySnapshot = await getDocs(collection(db, 'programs')); 
         const programsList = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data(),  // Spread the document data into the object
+          ...doc.data(),
         }));
 
-        setPrograms(programsList);  // Set the programs to the state
-        setLoading(false);  // Set loading to false once data is fetched
+        setPrograms(programsList);
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching programs:', error);
-        setError(error.message);  // Store the error message
-        setLoading(false);  // Set loading to false in case of an error
+        setError(error.message);
+        setLoading(false);
       }
     };
 
-    fetchPrograms();  // Call the fetch function
-  }, []);  // Empty dependency array means this effect runs only once when the component mounts
+    fetchPrograms();
+  }, []);
 
-  // Check if there is an error
   if (error) {
-    return <div>Error: {error}</div>;
+    return <div className="p-10 text-red-500">Error: {error}</div>;
   }
 
-  // Show a loading message while data is being fetched
   if (loading) {
-    return <div>Loading programs...</div>;
+    return <div className="p-10 text-center font-bold text-blue-600">Loading UniKL programs...</div>;
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 py-8">
-      <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-5xl border border-gray-100">
+    // We removed the Header and Footer from here because Layout.jsx handles them now!
+    <div className="py-12 px-4">
+      <div className="mx-auto bg-white rounded-2xl shadow-xl w-full max-w-6xl border border-gray-100 overflow-hidden">
         
         {/* Welcome Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-6 text-blue-600">Hi! Ready to discover your best path? ✨</h2>
-          <p className="text-gray-700 mb-4">Your journey to UniKL starts here. Let’s explore, plan, and achieve your dreams together!</p>
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-500 transition">
+        <div className="text-center p-12 bg-white">
+          <h2 className="text-4xl font-extrabold mb-4 text-blue-600">Hi! Ready to discover your best path? ✨</h2>
+          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            Your journey to UniKL starts here. Let’s explore, plan, and achieve your dreams together!
+          </p>
+          <button className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200">
             Start Assessment
           </button>
         </div>
 
         {/* Programs Offered Section */}
-        <div className="mb-8">
-          <h3 className="text-2xl font-semibold text-blue-600 mb-4">Programs at UniKL</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="p-8 border-t border-gray-50">
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-800">Programs at UniKL</h3>
+              <p className="text-gray-500 text-sm">Explore courses across our 12 campuses</p>
+            </div>
+          </div>
+
+          {/* HORIZONTAL SCROLL CONTAINER */}
+          <div className="flex overflow-x-auto pb-8 space-x-6 snap-x snap-mandatory">
             {programs.length === 0 ? (
-              <p>No programs available at the moment.</p>
+              <p className="text-gray-400 italic">No programs available at the moment.</p>
             ) : (
-              programs.map((program) => (
-                <div key={program.id} className="p-6 bg-gray-100 rounded-lg shadow-md">
-                  <h4 className="text-lg font-semibold text-blue-500">{program.title}</h4>
-                  <p className="text-gray-600 mt-2">{program.short_description}</p>
-                  <p className="text-gray-600 mt-2"><strong>Specialisation:</strong> {program.specialisation}</p>
-                  <a href={program.link} className="text-blue-600 mt-4">Learn More</a>
+              <>
+                {/* Display only the first 6 programs */}
+                {programs.slice(0, 6).map((program) => (
+                  <div 
+                    key={program.id} 
+                    className="snap-start min-w-[300px] max-w-[300px] p-6 bg-blue-50/50 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm mb-4">
+                        <span className="text-xl">🎓</span> 
+                      </div>
+                      <h4 className="text-lg font-bold text-blue-900 leading-tight mb-2">{program.title}</h4>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">{program.short_description}</p>
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">Specialisation</p>
+                      <p className="text-sm text-gray-700">{program.specialisation}</p>
+                    </div>
+                    <a href={program.link} target="_blank" rel="noreferrer" className="mt-6 text-blue-600 font-bold text-sm hover:underline">
+                      Learn More
+                    </a>
+                  </div>
+                ))}
+
+                {/* The "View All" Card at the end */}
+                <div 
+                  onClick={() => navigate('/all-programs')}
+                  className="snap-start min-w-[200px] max-w-[200px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-blue-200 rounded-2xl cursor-pointer hover:bg-blue-50 transition-colors group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <span className="text-blue-600 text-2xl">→</span>
+                  </div>
+                  <p className="font-bold text-blue-600">View All</p>
+                  <p className="text-xs text-gray-400">{programs.length} Programs</p>
                 </div>
-              ))
+              </>
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
