@@ -30,7 +30,7 @@ const Login = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-md border border-gray-100">
-        <h2 className="text-3xl font-bold mb-6 text-center text-blue-600">Route2MIIT Login</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center text-blue-600">Login</h2>
         
         {/* Display an error banner if login fails */}
         {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
@@ -43,7 +43,7 @@ const Login = () => {
               type="email" 
               required
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              placeholder="you@example.com"
+              placeholder="example@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />

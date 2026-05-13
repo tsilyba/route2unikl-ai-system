@@ -8,13 +8,18 @@ const Profile = () => {
   const [userData, setUserData] = useState({
     name: '',
     email: '',
+    role: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
   const user = auth.currentUser;
 
+  //roles label
+  const roleLabels = {
+    spm_leaver: "SPM Leaver",
+    form_4_5: "Upper Secondary Student",
+  };
   // READ: Fetch user data from Firestore
   useEffect(() => {
     const fetchUserData = async () => {
@@ -64,16 +69,9 @@ const Profile = () => {
   if (loading) return <div className="p-20 text-center">Loading Profile...</div>;
 
   return (
+    
     <div className="max-w-4xl mx-auto p-6 mt-10">
       <div className="bg-white shadow-xl rounded-3xl overflow-hidden border border-gray-100">
-        
-        {/* Profile Header */}
-        <div className="bg-blue-600 h-32 flex items-end justify-center pb-4">
-          <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl">
-            👤
-          </div>
-        </div>
-
         <div className="p-8 pt-12">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
@@ -124,16 +122,19 @@ const Profile = () => {
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Email</p>
                   <p className="text-xl text-gray-800 font-semibold">{user.email}</p>
                 </div>
+                 <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Role</p>
+                  <p className="text-xl text-gray-800 font-semibold">{userData.role ? roleLabels[userData.role] : "N/A"}</p>
+                </div>
               </div>
 
               {/* Danger Zone */}
               <div className="mt-12 pt-8 border-t border-red-50">
-                <h3 className="text-red-500 font-bold mb-4">Danger Zone</h3>
                 <button 
                   onClick={handleDeleteAccount}
                   className="text-sm font-bold text-red-400 hover:text-red-600 transition"
                 >
-                  Delete Account Forever
+                  Delete Account
                 </button>
               </div>
             </div>

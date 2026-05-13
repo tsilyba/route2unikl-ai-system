@@ -7,6 +7,7 @@ const Dashboard = () => {
   const [programs, setPrograms] = useState([]); 
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null); // Track if user is logged in
   
   const navigate = useNavigate(); // 2. Initialized the navigate hook
 
@@ -37,11 +38,10 @@ const Dashboard = () => {
   }
 
   if (loading) {
-    return <div className="p-10 text-center font-bold text-blue-600">Loading UniKL programs...</div>;
+    return <div className="p-10 text-center font-bold text-blue-600">Loading...</div>;
   }
 
   return (
-    // We removed the Header and Footer from here because Layout.jsx handles them now!
     <div className="py-12 px-4">
       <div className="mx-auto bg-white rounded-2xl shadow-xl w-full max-w-6xl border border-gray-100 overflow-hidden">
         
@@ -60,8 +60,8 @@ const Dashboard = () => {
         <div className="p-8 border-t border-gray-50">
           <div className="flex justify-between items-end mb-8">
             <div>
-              <h3 className="text-2xl font-bold text-gray-800">Programs at UniKL</h3>
-              <p className="text-gray-500 text-sm">Explore courses across our 12 campuses</p>
+              <h3 className="text-2xl font-bold text-gray-800">Programs Available at UniKL</h3>
+              <p className="text-gray-500 text-sm">Explore programs across our 12 campuses</p>
             </div>
           </div>
 

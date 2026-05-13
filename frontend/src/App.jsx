@@ -8,15 +8,15 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import Layout from './components/Layout';
 import AllPrograms from './pages/user/AllPrograms';
 import Profile from './pages/user/Profile';
-// 2. Updated User Imports
 import Dashboard from './pages/user/Dashboard';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   return (
     <BrowserRouter>
   <Layout>
        <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<LandingPage />} />
         
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />

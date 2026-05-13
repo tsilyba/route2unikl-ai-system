@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 const AllPrograms = () => {
   const [programs, setPrograms] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -25,20 +26,28 @@ const AllPrograms = () => {
   }, []);
 
   // Filter logic: Search by title or specialisation
-  const filteredPrograms = programs.filter(program => 
+ const filteredPrograms = programs.filter(program => {
+  // Check Search Term
+  const matchesSearch = 
     program.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    program.specialisation.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    program.specialisation.toLowerCase().includes(searchTerm.toLowerCase());
 
-  if (loading) return <div className="p-20 text-center font-bold text-blue-600 text-xl">Loading all programs...</div>;
+  // Check Dropdown Level
+  const matchesLevel = selectedLevel === "" || program.level === selectedLevel;
+
+  return matchesSearch && matchesLevel;
+});
+
+
+  if (loading) return <div className="p-20 text-center font-bold text-blue-600 text-xl">Loading...</div>;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-20">
       {/* Header Section */}
       <div className="bg-grey-600 py-16 px-4">
         <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-4xl font-extrabold text-black mb-4">UniKL Programme Explorer</h1>
-          <p className="text-black-100 text-lg mb-8">Discover your future across our diverse range of Foundation and Diploma courses.</p>
+          <h1 className="text-4xl font-extrabold text-black mb-4">UniKL Programme</h1>
+          <p className="text-black-100 text-lg mb-8">Discover your future at UniKL - Foundation and Diploma programmes.</p>
           
           {/* Search Bar */}
           <div className="max-w-xl mx-auto relative">
@@ -56,13 +65,12 @@ const AllPrograms = () => {
       {/* Grid Section */}
       <div className="max-w-7xl mx-auto px-4 mt-12">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">Showing {filteredPrograms.length} Programmes</h2>
-          <button onClick={() => navigate('/dashboard')} className="text-blue-600 font-semibold">← Back to Dashboard</button>
+          <h2 className="text-2xl font-bold text-gray-800">{filteredPrograms.length} Programmes</h2>
         </div>
 
         {filteredPrograms.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <p className="text-gray-400 text-lg">No programs match your search.</p>
+            <p className="text-gray-400 text-lg">No programmes match your search.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
