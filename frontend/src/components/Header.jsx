@@ -15,7 +15,7 @@ const Header = () => {
   }, []);
 
   const handleLogout = () => {
-    auth.signOut().then(() => navigate('/login'));
+    auth.signOut().then(() => navigate('/'));
   };
 
   return (

@@ -10,6 +10,7 @@ import AllPrograms from './pages/user/AllPrograms';
 import Profile from './pages/user/Profile';
 import Dashboard from './pages/user/Dashboard';
 import LandingPage from './pages/LandingPage';
+import UploadResults from './pages/user/UploadResults';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/all-programs" element={<AllPrograms />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/upload-results" element={<UploadResults />} />
 
         {/* Catch-all for undefined routes */}
         
