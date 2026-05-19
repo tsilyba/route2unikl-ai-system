@@ -47,9 +47,9 @@ const Dashboard = () => {
         
         {/* Welcome Section */}
         <div className="text-center p-12 bg-white">
-          <h2 className="text-4xl font-extrabold mb-4 text-blue-600">Hi! Ready to discover your best path? ✨</h2>
+          <h2 className="text-4xl font-extrabold mb-4 text-blue-600">Ready to discover your best path?</h2>
           <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Your journey to UniKL starts here. Let’s explore, plan, and achieve your dreams together!
+            Your journey to UniKL starts here.
           </p>
           
           <button 

@@ -162,7 +162,7 @@ const UploadResults = () => {
         const userProfileRef = doc(db, "users", user.uid);
         await updateDoc(userProfileRef, { hasUploadedResults: true });
 
-        alert("Results saved to database! 🎉");
+        alert("Results saved to database!");
         navigate('/ai-assessment');
       }
     } catch (error) {
@@ -192,8 +192,8 @@ const UploadResults = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="border-2 border-dashed border-blue-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-blue-50/30">
-            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mb-4">✨</div>
-            <p className="text-gray-600 font-semibold mb-4">AI Multimodal Vision Engine</p>
+            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mb-4">📂</div>
+            <p className="text-gray-600 font-semibold mb-4">Upload Here</p>
 
             <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
             <button 
@@ -214,9 +214,9 @@ const UploadResults = () => {
                   {isProcessing ? (
                     <>
                       <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                      AI is scanning your document...
+                      Loading...
                     </>
-                  ) : "Analyze Slip with Gemini AI"}
+                  ) : "Analyze Slip"}
                 </button>
               </div>
             )}
@@ -224,11 +224,11 @@ const UploadResults = () => {
 
           <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 flex flex-col">
             <h3 className="text-xl font-bold text-gray-800 mb-2">Results Preview</h3>
-            <p className="text-sm text-gray-500 mb-6">Verify the data extracted by the AI below before saving.</p>
+            <p className="text-sm text-gray-500 mb-6">Verify the subject and grades extracted before saving.</p>
 
             <div className="flex-1 overflow-y-auto space-y-3 max-h-[400px] pr-2">
               <div className="flex gap-3 px-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                <div className="flex-1">Mata Pelajaran</div>
+                <div className="flex-1">Mata Pelajaran/Subject</div>
                 <div className="w-16 text-center">Gred</div>
               </div>
 
@@ -262,7 +262,7 @@ const UploadResults = () => {
 
             <button onClick={addEmptyRow} className="mt-3 text-xs font-bold text-blue-600 hover:underline text-left pl-2">+ Add Missing Elective</button>
 
-            <button onClick={handleConfirm} className="mt-6 w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition">Confirm & Save to Firestore</button>
+            <button onClick={handleConfirm} className="mt-6 w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition">Confirm & Save</button>
           </div>
         </div>
       </div>

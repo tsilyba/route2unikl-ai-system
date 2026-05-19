@@ -7,7 +7,6 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   // 1. AUTO-REDIRECT LOGGED-IN USERS
-  // This makes the app feel professional—users don't see the landing page if they are already logged in.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -34,14 +33,14 @@ const LandingPage = () => {
               With a Single Step.
             </h1>
             <p className="text-xl text-gray-600 mb-10 leading-relaxed max-w-lg font-medium">
-              Stop guessing your future. Use our AI-powered cognitive assessment to find the program that actually matches your strengths.
+              Use our AI-powered cognitive assessment to find the program that actually matches your strengths.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
               <button 
                 onClick={() => navigate('/login')}
                 className="px-10 py-4 bg-[#1d4ed8] text-white rounded-2xl font-bold text-lg shadow-2xl shadow-blue-200 hover:bg-blue-800 transition-all transform hover:-translate-y-1"
               >
-                Get Started for Free
+                Click Here to Start
               </button>
               <button 
                 onClick={() => navigate('/all-programs')}
@@ -76,9 +75,9 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {[
-              { step: '01', title: 'Cognitive Quiz', desc: 'Take a short, smart assessment based on international PISA standards.' },
-              { step: '02', title: 'AI Analysis', desc: 'Our backend algorithm analyzes your logic, spatial, and verbal reasoning.' },
-              { step: '03', title: 'Smart Matching', desc: 'Receive a list of UniKL programs that perfectly align with your profile.' }
+              { step: '01', title: 'Cognitive Quiz', desc: 'Take a short, smart assessment based on RIASEC standards.' },
+              { step: '02', title: 'Smart Matching', desc: 'Receive a list of UniKL programs that perfectly align with your profile.' },
+              { step: '03', title: 'Early Prep', desc: 'Get Ready with Personalized Study Plans' }
             ].map((item, idx) => (
               <div key={idx} className="bg-white/80 p-8 rounded-3xl shadow-sm border border-white hover:shadow-md transition">
                 <span className="text-4xl font-black text-blue-100 mb-4 block">{item.step}</span>
@@ -93,13 +92,12 @@ const LandingPage = () => {
       {/* 3. CTA Section */}
       <section className="py-20 px-6 text-center">
         <div className="max-w-4xl mx-auto bg-blue-600 rounded-[3rem] p-12 shadow-2xl shadow-blue-200">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to find your campus?</h2>
-          <p className="text-blue-100 mb-10 text-lg">Join hundreds of other students making the smart choice for their degree.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to find your programmes?</h2>
           <button 
             onClick={() => navigate('/login')}
             className="bg-white text-blue-600 px-10 py-4 rounded-2xl font-bold text-lg hover:bg-blue-50 transition-all shadow-lg"
           >
-            Join Route2UniKL Today
+            Sign Up Route2UniKL
           </button>
         </div>
       </section>
