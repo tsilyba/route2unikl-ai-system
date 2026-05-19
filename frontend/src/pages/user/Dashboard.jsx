@@ -1,20 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase'; 
-import { collection, getDocs } from 'firebase/firestore'; 
-import { useNavigate } from 'react-router-dom'; // 1. Added this import
+import { db, auth } from '../../firebase'; // 1. Added auth import
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore'; // 2. Added doc and getDoc imports
+import { useNavigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth'; // 3. Added auth listener
 
 const Dashboard = () => {
   const [programs, setPrograms] = useState([]); 
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
-  const [user, setUser] = useState(null); // Track if user is logged in
   
-  const navigate = useNavigate(); // 2. Initialized the navigate hook
+  // 4. NEW STATE: Track the user's role
+  const [userRole, setUserRole] = useState(null); 
+  
+  const navigate = useNavigate();
 
+  // 5. NEW EFFECT: Fetch the user's role when the dashboard loads
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            setUserRole(userDoc.data().role); // Save the role (e.g., 'spm_leaver' or 'form_4_5')
+          }
+        } catch (err) {
+          console.error("Error fetching user role:", err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Programs Effect (unchanged)
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        // 3. Ensure this matches your Firestore collection name ('unikl_programs' or 'programs')
         const querySnapshot = await getDocs(collection(db, 'programs')); 
         const programsList = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -32,6 +53,22 @@ const Dashboard = () => {
 
     fetchPrograms();
   }, []);
+
+  // 6. THE TRAFFIC COP FUNCTION: Routes the user based on their state
+  const handleStartAssessment = () => {
+    if (!userRole) {
+      alert("Still verifying your account details. Please wait a moment.");
+      return;
+    }
+
+    if (userRole === 'spm_leaver') {
+      navigate('/upload-results');
+    } else if (userRole === 'form_4_5') {
+      navigate('/manual-grade-entry');
+    } else {
+      alert("Role not recognized. Please contact support.");
+    }
+  };
 
   if (error) {
     return <div className="p-10 text-red-500">Error: {error}</div>;
@@ -52,14 +89,13 @@ const Dashboard = () => {
             Your journey to UniKL starts here.
           </p>
           
+          {/* 7. UPDATED BUTTON: Now calls our smart routing function */}
           <button 
-            onClick={() => navigate('/upload-results')} 
-          className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200"
-            >
+            onClick={handleStartAssessment} 
+            className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200"
+          >
            Start Assessment
           </button>
-
-         
         </div>
 
         {/* Programs Offered Section */}

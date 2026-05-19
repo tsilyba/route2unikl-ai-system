@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db, auth } from '../../firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'; 
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 
-// 1. Updated Requirements (No KOD)
 const MIN_REQUIREMENTS = [
   { subject: 'BAHASA MELAYU', grade: '' },
   { subject: 'BAHASA INGGERIS', grade: '' },
@@ -17,20 +16,42 @@ const genAI = new GoogleGenerativeAI("AIzaSyAEHlYHat-5A0PjGjlGiDawA5qh73yGCT4");
 
 const UploadResults = () => {
 
-
   const [file, setFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedResults, setExtractedResults] = useState([...MIN_REQUIREMENTS]);
+  const [pageLoading, setPageLoading] = useState(true); // Added a loading state for the role check
   
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
+  // 1. UPDATED ROLE CHECK LOGIC
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!auth.currentUser) {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
         navigate('/login');
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Verify they are an SPM Leaver. 
+          // (Adjust 'SPM Leaver' to match your actual database string if needed)
+          // Updated to match your exact Firestore schema
+          if (userData.role !== 'spm_leaver') {
+            alert("Access Denied: This OCR upload page is strictly for SPM Leavers.");
+            navigate('/dashboard'); 
+          } else {
+            setPageLoading(false); 
+          }
+        }
+      } catch (error) {
+        console.error("Role verification failed:", error);
       }
     });
+
     return () => unsubscribe();
   }, [navigate]);
 
@@ -98,7 +119,6 @@ const UploadResults = () => {
     }
   };
 
-  // 2. Updated Merging Logic (Matched by Subject Name only)
   const mergeResultsWithUI = (aiData) => {
     let currentResults = [...MIN_REQUIREMENTS];
 
@@ -106,7 +126,6 @@ const UploadResults = () => {
       const subject = (aiItem.subject || '').toUpperCase().trim();
       const grade = (aiItem.grade || '').toUpperCase().trim();
 
-      // Check if AI subject matches or is similar to our 4 mandatory ones
       const existingIndex = currentResults.findIndex(
         r => r.subject === subject || subject.includes(r.subject) || r.subject.includes(subject)
       );
@@ -122,18 +141,17 @@ const UploadResults = () => {
   };
 
   const handleEditChange = (index, field, value) => {
-  const newResults = [...extractedResults];
-  newResults[index][field] = value;
-  setExtractedResults(newResults);
-};
+    const newResults = [...extractedResults];
+    newResults[index][field] = value;
+    setExtractedResults(newResults);
+  };
 
   const addEmptyRow = () => {
     setExtractedResults([...extractedResults, { subject: '', grade: '' }]);
   };
 
-  // 3. Updated Database Logic
+  // 2. UPDATED DATABASE SAVING LOGIC
   const handleConfirm = async () => {
-    // Validate mandatory 4
     const mandatoryMissing = extractedResults.slice(0, 4).some(r => r.grade.trim() === '');
     if (mandatoryMissing) {
       alert("Please ensure BM, BI, Math, and Sejarah have grades.");
@@ -145,24 +163,26 @@ const UploadResults = () => {
     try {
       const user = auth.currentUser;
       if (user) {
-        // Save to dedicated spm_results collection
-        const resultDocRef = doc(db, "spm_results", user.uid);
+        // Changed collection name to the generic 'results'
+        const resultDocRef = doc(db, "results", user.uid);
 
         const dataToSave = {
           userId: user.uid,
           email: user.email,
-          results: cleanedResults, // Array of {subject, grade}
+          results: cleanedResults, 
           updatedAt: new Date(),
-          status: "verified"
+          status: "verified",
+          // Added Discriminator Fields for the unified database architecture
+          recordType: "OFFICIAL_SPM_CERT", 
+          verificationMethod: "AI_OCR_GEMINI" 
         };
 
         await setDoc(resultDocRef, dataToSave);
 
-        // Update user profile flag
         const userProfileRef = doc(db, "users", user.uid);
         await updateDoc(userProfileRef, { hasUploadedResults: true });
 
-        alert("Results saved to database!");
+        alert("Results securely verified and saved to database!");
         navigate('/ai-assessment');
       }
     } catch (error) {
@@ -170,6 +190,11 @@ const UploadResults = () => {
       alert("Failed to save. Check your Firestore Rules.");
     }
   };
+
+  // Prevent UI flashing while checking the user's role
+  if (pageLoading) {
+    return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Verifying Security Credentials...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
@@ -233,31 +258,26 @@ const UploadResults = () => {
               </div>
 
              {extractedResults.map((item, idx) => (
-  <div key={idx} className="flex gap-2 p-2 bg-white rounded-xl border shadow-sm">
-    {/* SUBJECT NAME INPUT */}
-    <input 
-      type="text" 
-      value={item.subject} 
-      placeholder="Mata Pelajaran" 
-      // If it's the core 4 subjects, it's readOnly. 
-      // Otherwise, we allow the user to edit elective names.
-      readOnly={idx < 4} 
-      onChange={(e) => handleEditChange(idx, 'subject', e.target.value.toUpperCase())}
-      className={`flex-1 p-2 border rounded-lg font-bold text-sm ${idx < 4 ? 'bg-gray-50/50' : 'bg-white'}`}
-    />
+                <div key={idx} className="flex gap-2 p-2 bg-white rounded-xl border shadow-sm">
+                  <input 
+                    type="text" 
+                    value={item.subject} 
+                    placeholder="Mata Pelajaran" 
+                    readOnly={idx < 4} 
+                    onChange={(e) => handleEditChange(idx, 'subject', e.target.value.toUpperCase())}
+                    className={`flex-1 p-2 border rounded-lg font-bold text-sm ${idx < 4 ? 'bg-gray-50/50' : 'bg-white'}`}
+                  />
 
-    {/* GRADE INPUT */}
-    <input 
-      type="text" 
-      value={item.grade} 
-      placeholder="Gred" 
-      maxLength={2}
-      // This MUST have an onChange so users can fix AI mistakes
-      onChange={(e) => handleEditChange(idx, 'grade', e.target.value.toUpperCase())}
-      className="w-16 p-2 border rounded-lg text-center font-black text-blue-600 focus:ring-2 focus:ring-blue-400"
-    />
-  </div>
-))}
+                  <input 
+                    type="text" 
+                    value={item.grade} 
+                    placeholder="Gred" 
+                    maxLength={2}
+                    onChange={(e) => handleEditChange(idx, 'grade', e.target.value.toUpperCase())}
+                    className="w-16 p-2 border rounded-lg text-center font-black text-blue-600 focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              ))}
             </div>
 
             <button onClick={addEmptyRow} className="mt-3 text-xs font-bold text-blue-600 hover:underline text-left pl-2">+ Add Missing Elective</button>
