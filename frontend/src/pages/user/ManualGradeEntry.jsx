@@ -29,7 +29,6 @@ const ManualGradeEntry = () => {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          // Must exactly match the string saved in your database during registration
           if (userData.role !== 'form_4_5') {
             alert("Access Denied: This manual entry page is strictly for Form 4 and Form 5 students.");
             navigate('/dashboard'); 
@@ -78,7 +77,6 @@ const ManualGradeEntry = () => {
           results: cleanedResults,
           updatedAt: new Date(),
           status: "manual_entry",
-          // The Discriminator Fields to distinguish this from AI OCR uploads
           recordType: "PREDICTED_GRADES", 
           verificationMethod: "MANUAL_ENTRY" 
         });
@@ -103,6 +101,19 @@ const ManualGradeEntry = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-lg p-8">
+
+        <div className="flex justify-between items-center mb-12 border-b pb-8">
+          {['Upload Results', 'AI Assessment', 'Recommendation', 'Preparation Plan'].map((step, idx) => (
+            <div key={idx} className="flex flex-col items-center flex-1 relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 z-10
+                ${idx === 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
+                {idx === 0 ? '✓' : idx + 1}
+              </div>
+              <span className={`text-xs font-bold ${idx === 0 ? 'text-blue-600' : 'text-gray-400'}`}>{step}</span>
+              {idx < 3 && <div className="absolute top-5 left-1/2 w-full h-[2px] bg-gray-100 -z-0"></div>}
+            </div>
+          ))}
+        </div>
         
         <div className="mb-8 text-center">
           <span className="bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase">

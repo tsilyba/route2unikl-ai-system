@@ -37,9 +37,7 @@ const UploadResults = () => {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          // Verify they are an SPM Leaver. 
-          // (Adjust 'SPM Leaver' to match your actual database string if needed)
-          // Updated to match your exact Firestore schema
+
           if (userData.role !== 'spm_leaver') {
             alert("Access Denied: This OCR upload page is strictly for SPM Leavers.");
             navigate('/dashboard'); 
@@ -84,14 +82,23 @@ const UploadResults = () => {
 
     try {
       const imagePart = await fileToGenerativePart(file);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
       const prompt = `
-        You are a universal academic transcript parser for Malaysian SPM results. 
-        1. Scan the image for ALL subjects and grades.
-        2. Language Independence: Identify subjects even if written in English (e.g., "MATHEMATICS" -> "MATEMATIK").
-        3. Strict Grade Format: Extract ONLY the grade symbol (A+, A, A-, B+, B, C+, C, D, E, G). 
-        4. Standardize: Convert all subject names to standard BAHASA MELAYU uppercase.
+        You are an expert academic transcript parser for Malaysian SPM results.
+  
+        1. Scan the image for ALL subjects and their letter grades.
+        2. Subject Separation (CRITICAL):
+     - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
+     - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
+     - Do NOT confuse them. They are two distinct subjects with separate grades.
+      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
+     - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
+     - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
+     - "PHYSICS" -> "FIZIK"
+     - "CHEMISTRY" -> "KIMIA"
+     - "BIOLOGY" -> "BIOLOGI"
+      4 . Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
         
         Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
       `;
@@ -172,7 +179,6 @@ const UploadResults = () => {
           results: cleanedResults, 
           updatedAt: new Date(),
           status: "verified",
-          // Added Discriminator Fields for the unified database architecture
           recordType: "OFFICIAL_SPM_CERT", 
           verificationMethod: "AI_OCR_GEMINI" 
         };

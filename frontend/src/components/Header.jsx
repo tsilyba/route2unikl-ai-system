@@ -15,7 +15,11 @@ const Header = () => {
   }, []);
 
   const handleLogout = () => {
-    auth.signOut().then(() => navigate('/'));
+    const confirmLogout = window.confirm("Are you sure you want to log out?");
+    
+    if (confirmLogout) {
+      auth.signOut().then(() => navigate('/'));
+    }
   };
 
   return (

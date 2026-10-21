@@ -9,19 +9,17 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState(null);
   
-  // 4. NEW STATE: Track the user's role
   const [userRole, setUserRole] = useState(null); 
   
   const navigate = useNavigate();
 
-  // 5. NEW EFFECT: Fetch the user's role when the dashboard loads
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role); // Save the role (e.g., 'spm_leaver' or 'form_4_5')
+            setUserRole(userDoc.data().role); 
           }
         } catch (err) {
           console.error("Error fetching user role:", err);
