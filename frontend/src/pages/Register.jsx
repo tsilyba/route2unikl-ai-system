@@ -35,6 +35,8 @@ const Register = () => {
         name: name,
         email: user.email,
         role: role,
+        currentStep:1,
+        hasCompletedProfile: false,
         createdAt: new Date()
       });
 

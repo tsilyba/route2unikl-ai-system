@@ -4,6 +4,7 @@ import { db, auth } from '../../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'; 
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
+import Stepper from '../../components/Stepper';
 
 const MIN_REQUIREMENTS = [
   { subject: 'BAHASA MELAYU', grade: '' },
@@ -12,7 +13,7 @@ const MIN_REQUIREMENTS = [
   { subject: 'SEJARAH', grade: '' }
 ];
 
-const genAI = new GoogleGenerativeAI("AIzaSyAEHlYHat-5A0PjGjlGiDawA5qh73yGCT4");
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 const UploadResults = () => {
 
@@ -206,18 +207,8 @@ const UploadResults = () => {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-lg p-8">
         
-        <div className="flex justify-between items-center mb-12 border-b pb-8">
-          {['Upload Results', 'AI Assessment', 'Recommendation', 'Preparation Plan'].map((step, idx) => (
-            <div key={idx} className="flex flex-col items-center flex-1 relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 z-10
-                ${idx === 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
-                {idx === 0 ? '✓' : idx + 1}
-              </div>
-              <span className={`text-xs font-bold ${idx === 0 ? 'text-blue-600' : 'text-gray-400'}`}>{step}</span>
-              {idx < 3 && <div className="absolute top-5 left-1/2 w-full h-[2px] bg-gray-100 -z-0"></div>}
-            </div>
-          ))}
-        </div>
+      <Stepper currentStep={2}/>
+
 
         <h2 className="text-2xl font-bold text-gray-800 mb-8">Upload your SPM result.</h2>
 

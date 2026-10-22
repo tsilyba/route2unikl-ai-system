@@ -1,0 +1,69 @@
+[
+  {
+    "program_id": "unikl_miit_foundation_computer",
+    "title": "Foundation in Computer Technology",
+    "level": "Foundation",
+    "campuses": "UniKL MIIT",
+    "major_category": "Information Technology & Computing",
+    "pathway_category": "Computing & Digital Technology",
+    "specialisation": "Information Technology",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "C",
+    "min_bi_grade": "C",
+    "requires_science": false,
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits.",
+    "short_description": "Your first step into the world of computing and technology.",
+    "knowledge_context": "Introduces programming logic, computational thinking, discrete structures, and fundamental computer systems architecture. Designed for transition into software engineering, cybersecurity, and data science majors.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-computer-technology",
+    "alternative_pathway_ids": ["unikl_miit_diploma_it", "unikl_miit_diploma_networking"],
+    "preparatory_guideline": [
+      {
+       "title": "Learn Data Structures and Algorithms Visually",
+      "platform": "FreeCodeCamp",
+      "subject": "Data Structures & Algorithms",
+      "link": "https://www.freecodecamp.org/news/learn-data-structures-and-algorithms-visually/"
+
+      },
+      {
+        "title": "Computer & Technology Basics Course for Absolute Beginners",
+        "platform": "YouTube",
+        "subject": "Introductory Information Technology",
+        "link": "https://www.youtube.com/watch?v=y2kg3MOk1sY"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_bis_foundation_business",
+    "title": "Foundation in Business",
+    "level": "Foundation",
+    "campuses": "UniKL BIS",
+    "major_category": "Business, Management & Logistics",
+    "pathway_category": "Business Management & Logistics",
+    "specialisation": "Business & Management",
+    "min_spm_credits": 5,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "C",
+    "min_bi_grade": "C",
+    "requires_science": false,
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits.",
+    "short_description": "Core principles of business management and administration.",
+    "knowledge_context": "Emphasizes core principles of management, basic accounting, business mathematics, microeconomics, and organizational behavior. Prepares candidates for bachelor pathways in international business, accounting, and supply chain.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-business",
+    "alternative_pathway_ids": ["unikl_mitec_diploma_industrial_logistics"],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Economics",
+        "platform": "YouTube",
+        "subject": "Economics",
+        "link": "https://www.youtube.com/watch?v=NngM_qdDMm8"
+      },
+      {
+        "title": "Introduction to Business Mathematics",
+        "platform": "Udemy",
+        "subject": "Business Mathematics",
+        "link": "https://www.udemy.com/course/business-mathematic/?srsltid=AU7gw4Xe_f_M1ah5MqlQE92L90WqxeVFHp2DdJNQPIhAdx5i6QieJa6h"
+      }
+    ]
+  }
+]

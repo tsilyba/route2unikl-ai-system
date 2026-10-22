@@ -3,6 +3,7 @@ import { db, auth } from '../../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
+import Stepper from '../../components/Stepper';
 
 const DummyAIAssessment = () => {
   const [loading, setLoading] = useState(true);
@@ -55,7 +56,30 @@ const DummyAIAssessment = () => {
       // Store them in state so we can attach them to the final save
       setUserData({ role, grades, interests });
 
-      // 2. Generate the "Fake AI" Questions
+      // 2. Request 10 MCQ from FastAPI RAG Orchestrator (ChromaDB + Ollama Cloud)
+      try {
+        const response = await fetch("http://localhost:8000/api/assessment/generate-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: uid,
+            interests: interests
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.questions && data.questions.length > 0) {
+            setQuestions(data.questions);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (backendErr) {
+        console.warn("FastAPI backend not running at :8000, using dynamic fallback:", backendErr);
+      }
+
+      // Fallback generator if backend is offline
       buildDynamicMockQuestions(interests, grades);
 
     } catch (error) {
@@ -211,9 +235,18 @@ const DummyAIAssessment = () => {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-lg p-8">
         
+        <Stepper currentStep={3} />
+
         {/* Stepper Header indicator */}
         <div className="flex justify-between items-center mb-8 text-sm font-bold text-gray-400">
-          <span>{currentQuestion.category} <span className="text-blue-400 ml-2">(Demo Mode)</span></span>
+          <span>
+            {currentQuestion.category}
+            {currentQuestion.dimension && (
+              <span className="text-blue-600 ml-2 bg-blue-50 px-2.5 py-0.5 rounded-full text-xs font-bold border border-blue-100">
+                {currentQuestion.dimension}
+              </span>
+            )}
+          </span>
           <span className="text-blue-600">Question {currentIdx + 1} of {questions.length}</span>
         </div>
 
