@@ -4,6 +4,7 @@ import { db, auth } from '../../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'; 
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
+import Stepper from '../../components/Stepper';
 
 const MIN_REQUIREMENTS = [
   { subject: 'BAHASA MELAYU', grade: '' },
@@ -12,7 +13,7 @@ const MIN_REQUIREMENTS = [
   { subject: 'SEJARAH', grade: '' }
 ];
 
-const genAI = new GoogleGenerativeAI("AIzaSyAEHlYHat-5A0PjGjlGiDawA5qh73yGCT4");
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 const UploadResults = () => {
 
@@ -76,51 +77,91 @@ const UploadResults = () => {
     });
   };
 
+  const CANDIDATE_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-3.8-flash"
+  ];
+
   const handleExtractWithAI = async () => {
     if (!file) return;
     setIsProcessing(true);
 
+    const prompt = `
+      You are an expert academic transcript parser for Malaysian SPM results.
+
+      1. Scan the image for ALL subjects and their letter grades.
+      2. Subject Separation (CRITICAL):
+         - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
+         - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
+         - Do NOT confuse them. They are two distinct subjects with separate grades.
+      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
+         - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
+         - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
+         - "PHYSICS" -> "FIZIK"
+         - "CHEMISTRY" -> "KIMIA"
+         - "BIOLOGY" -> "BIOLOGI"
+      4. Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
+      
+      Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
+    `;
+
     try {
       const imagePart = await fileToGenerativePart(file);
-      const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+      let success = false;
+      let lastError = null;
 
-      const prompt = `
-        You are an expert academic transcript parser for Malaysian SPM results.
-  
-        1. Scan the image for ALL subjects and their letter grades.
-        2. Subject Separation (CRITICAL):
-     - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
-     - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
-     - Do NOT confuse them. They are two distinct subjects with separate grades.
-      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
-     - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
-     - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
-     - "PHYSICS" -> "FIZIK"
-     - "CHEMISTRY" -> "KIMIA"
-     - "BIOLOGY" -> "BIOLOGI"
-      4 . Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
-        
-        Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
-      `;
+      // Try candidate models sequentially if a model experiences 503 high demand
+      for (const modelName of CANDIDATE_MODELS) {
+        try {
+          console.log(`Extracting SPM results with model: ${modelName}...`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          
+          const result = await model.generateContent({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }, imagePart],
+              },
+            ],
+            generationConfig: { responseMimeType: "application/json" },
+          });
 
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }, imagePart],
-          },
-        ],
-        generationConfig: { responseMimeType: "application/json" },
-      });
+          const responseText = result.response.text();
+          const parsedJson = JSON.parse(responseText);
 
-      const responseText = result.response.text();
-      const parsedJson = JSON.parse(responseText);
+          if (Array.isArray(parsedJson) && parsedJson.length > 0) {
+            mergeResultsWithUI(parsedJson);
+            success = true;
+            console.log(`✓ SPM extraction completed successfully via ${modelName}!`);
+            break;
+          }
+        } catch (modelErr) {
+          console.warn(`Model ${modelName} encountered an issue:`, modelErr);
+          lastError = modelErr;
+          
+          // If 503 (high demand) or 429 (rate limit), continue to the next fallback model
+          const errMsg = modelErr?.message || "";
+          if (errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("429")) {
+            console.log(`Switching from ${modelName} to backup model due to high demand...`);
+            continue;
+          }
+        }
+      }
 
-      mergeResultsWithUI(parsedJson);
+      if (!success) {
+        throw lastError || new Error("Failed to extract results across all available models.");
+      }
 
     } catch (error) {
       console.error("AI Extractor Error:", error);
-      alert("Extraction failed. Ensure your API key is correct.");
+      const is503 = error?.message?.includes("503") || error?.message?.includes("high demand");
+      if (is503) {
+        alert("Google Gemini servers are currently experiencing high traffic. Please retry in a moment.");
+      } else {
+        alert("Extraction failed. Please verify that your result slip image is clear and your API key is active.");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -206,18 +247,8 @@ const UploadResults = () => {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-lg p-8">
         
-        <div className="flex justify-between items-center mb-12 border-b pb-8">
-          {['Upload Results', 'AI Assessment', 'Recommendation', 'Preparation Plan'].map((step, idx) => (
-            <div key={idx} className="flex flex-col items-center flex-1 relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 z-10
-                ${idx === 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}>
-                {idx === 0 ? '✓' : idx + 1}
-              </div>
-              <span className={`text-xs font-bold ${idx === 0 ? 'text-blue-600' : 'text-gray-400'}`}>{step}</span>
-              {idx < 3 && <div className="absolute top-5 left-1/2 w-full h-[2px] bg-gray-100 -z-0"></div>}
-            </div>
-          ))}
-        </div>
+      <Stepper currentStep={2}/>
+
 
         <h2 className="text-2xl font-bold text-gray-800 mb-8">Upload your SPM result.</h2>
 

@@ -2,14 +2,26 @@
 # Route2UniKL Root .gitignore
 # ==============================
 
-# 1. Private and Confidential (PNC) Keys
+# 1. Private and Confidential (PNC) Keys & Environment Files
 backend/serviceAccountKey.json
 .env
+*.env
+.env.*
+frontend/.env
+backend/.env
 
 # 2. Python & Backend Environment
 backend/venv/
+backend/chroma_db/
+backend/.cache/
 __pycache__/
 *.pyc
 
-# 3. macOS System Files
+# 3. Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+scripts/node_modules/
+
+# 4. macOS System Files
 .DS_Store

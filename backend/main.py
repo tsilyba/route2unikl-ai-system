@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.firebase import initialize_firebase
+from routes.assessment import router as assessment_router
 
 app = FastAPI(
     title="Route2UniKL API",
@@ -10,11 +11,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], #  React port
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], # React port
     allow_credentials=True,
     allow_methods=["*"], # Allows all methods like GET, POST, PUT, DELETE
     allow_headers=["*"], # Allows all headers
 )
+
+# Mount AI Assessment RAG Router
+app.include_router(assessment_router, prefix="/api/assessment", tags=["AI Assessment"])
 
 try:
     db = initialize_firebase()

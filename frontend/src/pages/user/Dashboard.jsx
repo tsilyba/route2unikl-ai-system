@@ -60,9 +60,9 @@ const Dashboard = () => {
     }
 
     if (userRole === 'spm_leaver') {
-      navigate('/upload-results');
+      navigate('/profile-ingestion');
     } else if (userRole === 'form_4_5') {
-      navigate('/manual-grade-entry');
+      navigate('/profile-ingestion');
     } else {
       alert("Role not recognized. Please contact support.");
     }
