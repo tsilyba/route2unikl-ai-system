@@ -129,14 +129,13 @@ def load_programs_from_csv(file_path: Path, existing_ids: set, existing_titles: 
     return supplementary
 
 
-def seed_chroma(include_csv: bool = True):
+def seed_chroma(include_csv: bool = False):
     """
     Main seeding routine:
     1. Connects to persistent ChromaDB at backend/chroma_db.
-    2. Loads programmes from unikl_foundation_testplan.json.
-    3. Optionally supplements with additional programmes from unikl_programmes.csv.
-    4. Upserts all documents, embeddings, and metadata into ChromaDB.
-    5. Runs a test search to verify the collection.
+    2. Loads all 35 programmes from unikl_foundation_testplan.json (Single Source of Truth).
+    3. Removes any outdated IDs and upserts all documents, embeddings, and metadata into ChromaDB.
+    4. Runs a test search to verify the collection.
     """
     print("=" * 60)
     print("🚀 Initializing ChromaDB Seeder for Route2UniKL...")
@@ -177,6 +176,13 @@ def seed_chroma(include_csv: bool = True):
         documents.append(doc_text)
         metadatas.append(metadata)
 
+    # Remove any old/stale IDs not present in the current master JSON
+    existing_in_db = set(collection.get()["ids"])
+    stale_ids = list(existing_in_db - set(ids))
+    if stale_ids:
+        collection.delete(ids=stale_ids)
+        print(f"🧹 Removed {len(stale_ids)} stale record(s) from ChromaDB.")
+
     # 4. Upsert into ChromaDB
     print(f"\n📦 Upserting {len(ids)} programmes into collection '{COLLECTION_NAME}'...")
     collection.upsert(
@@ -191,7 +197,9 @@ def seed_chroma(include_csv: bool = True):
     print("\n🔍 Running verification test search...")
     sample_queries = [
         "I love software development, coding and cybersecurity",
-        "Business management, finance, accounting and marketing"
+        "Business management, finance, accounting and marketing",
+        "Aircraft maintenance, avionics and aviation technology",
+        "Medicine, pharmacy, nursing and healthcare"
     ]
 
     for query in sample_queries:
@@ -205,11 +213,11 @@ def seed_chroma(include_csv: bool = True):
 
         print(f"\n  Query: \"{query}\"")
         print(f"  → Best Match: {matched_meta.get('title')} (ID: {matched_id})")
-        print(f"  → Campus: {matched_meta.get('campuses')} | Distance: {matched_dist:.4f}")
+        print(f"  → Campus: {matched_meta.get('campuses')} | Pathway: {matched_meta.get('pathway_category')} | Distance: {matched_dist:.4f}")
 
     print("\n🎉 ChromaDB Seeding and Verification Complete!")
     print("=" * 60)
 
 
 if __name__ == "__main__":
-    seed_chroma(include_csv=True)
+    seed_chroma(include_csv=False)

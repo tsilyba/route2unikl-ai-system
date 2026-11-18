@@ -3,43 +3,75 @@ import os
 import json
 import logging
 import httpx
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from core.chroma import get_program_collection
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from backend/.env
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
 
 logger = logging.getLogger("rag_orchestrator")
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://api.ollama.com")
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "861d89acd7f24138a3a4f438c1e463f5.-Baxl5z7Cwg9iVqdQcFOWZ0T")
-# Free Ollama Cloud model (verified free tier: minimax-m3.1-flash, gpt-oss:20b, nemotron-3-nano:30b)
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "minimax-m3.1-flash")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:31b")
 
-# Restrict specifically to Foundation Testplan programs
-FOUNDATION_TESTPLAN_IDS = [
-    "unikl_miit_foundation_computer",
-    "unikl_bis_foundation_business"
-]
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMMA_CLOUD_MODEL = os.getenv("GEMMA_CLOUD_MODEL", "gemma-4-31b-it")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+ROOT_DIR = BACKEND_DIR.parent
+TESTPLAN_JSON_PATH = ROOT_DIR / "frontend" / "src" / "assets" / "unikl_foundation_testplan.json"
+
+
+def get_all_testplan_ids() -> List[str]:
+    """Dynamically loads all program_ids from unikl_foundation_testplan.json."""
+    if TESTPLAN_JSON_PATH.exists():
+        try:
+            with open(TESTPLAN_JSON_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ids = [p["program_id"] for p in data if p.get("program_id")]
+                if ids:
+                    return ids
+        except Exception as e:
+            logger.warning(f"Failed to read testplan JSON IDs: {e}")
+    return ["unikl_miit_foundation_computer", "unikl_bis_foundation_business"]
 
 
 def retrieve_program_context(interests: List[str]) -> Dict[str, Any]:
     """
     Queries ChromaDB using the student's declared interest(s).
-    Specifically filters for the Foundation testplan programmes to return the
-    matching programme context for RAG generation.
+    Prioritizes programmes matching the student's declared pathway_category,
+    with fallback across all programmes in unikl_foundation_testplan.json.
     """
     collection = get_program_collection()
-
+    testplan_ids = get_all_testplan_ids()
     query_str = " ".join(interests) if interests else "General Academic Studies"
 
     try:
-        results = collection.query(
-            query_texts=[query_str],
-            n_results=1,
-            where={"program_id": {"$in": FOUNDATION_TESTPLAN_IDS}}
-        )
+        # 1. Try filtering by exact pathway_category if student selected from the 8 categories
+        results = None
+        if interests:
+            try:
+                results = collection.query(
+                    query_texts=[query_str],
+                    n_results=1,
+                    where={"pathway_category": {"$in": interests}}
+                )
+            except Exception:
+                results = None
+
+        # 2. Fallback to querying across all testplan programme IDs
+        if not (results and results.get("metadatas") and results["metadatas"][0]):
+            results = collection.query(
+                query_texts=[query_str],
+                n_results=1,
+                where={"program_id": {"$in": testplan_ids}}
+            )
 
         if results and results["metadatas"] and results["metadatas"][0]:
             matched_meta = results["metadatas"][0][0]
@@ -80,24 +112,45 @@ def build_assessment_prompt(interests: List[str], program_context: Dict[str, Any
     return f"""You are an expert psychometric evaluator and academic advisor for Universiti Kuala Lumpur (UniKL).
 
 [STUDENT CONTEXT]
-- Declared Academic Interests: {declared_interest_str}
+- Declared Academic Interests: 
+{declared_interest_str}
 
 [MATCHED UNIKL FOUNDATION PROGRAMME (FROM VECTOR DATABASE)]
-- Programme: {program_context.get('title')} ({program_context.get('campuses')})
-- Pathway Category: {program_context.get('pathway_category')}
-- Specialisation: {program_context.get('specialisation')}
-- Academic Scope & Context: {program_context.get('document_text')}
+- Programme: 
+{program_context.get('title')} ({program_context.get('campuses')})
+- Pathway Category: 
+{program_context.get('pathway_category')}
+- Specialisation: 
+{program_context.get('specialisation')}
+- Academic Scope & Context: 
+{program_context.get('document_text')}
 
-[TASK]
-Generate EXACTLY 10 Multiple-Choice Questions (MCQ) for this student's AI Assessment:
-- Questions 1 to 5: Cognitive Ability (Logical deduction, analytical thinking, computational or business logic, pattern identification, structured problem-solving relevant to {program_context.get('title')}).
-- Questions 6 to 10: Strengths & Workstyle (Grit, learning agility, prioritization, adaptability, collaborative mindset, and intrinsic motivation required to excel in this field).
+[TARGET AUDIENCE & TONE - CRITICAL]
+1. Target Level: Malaysian high school graduates and SPM leavers (ages 16–18).
+2. Language Standard: Simple, clear, everyday English (CEFR B1/B2 level).
+3. Complexity Guardrails:
+   - STRICTLY AVOID undergraduate/workplace jargon (e.g., do NOT mention "concurrency", "distributed architectures", "supply chain ERP", "clinical pharmacology", or advanced formulas).
+   - Base questions on relatable real-world or secondary school situations (e.g., smartphone apps, sports events, school project teamwork, saving pocket money, organizing a club event, or troubleshooting everyday household gadgets).
+   - Test natural curiosity and foundational logic, NOT technical knowledge they have not been taught yet.
+
+[TASK: MALAYSIAN QUALIFICATIONS FRAMEWORK (MQF) ALIGNMENT]
+Generate EXACTLY 10 Multiple-Choice Questions (MCQ) tailored to {program_context.get('title')} that align with the 5 MQF Learning Outcome Clusters:
+
+- Questions 1 to 5: MQF Clusters 1, 2 & 3 (Knowledge, Cognitive Skills & Functional/Practical Skills)
+  * Dimension: "MQF C1-C3: Cognitive & Practical"
+  * Focus on basic conceptual understanding, step-by-step logic, pattern recognition, cause-and-effect, and practical problem-solving application.
+  * Keep the problem statement concise (2 to 3 sentences maximum).
+
+- Questions 6 to 10: MQF Clusters 4 & 5 (Personal Skills, Ethics & Professionalism)
+  * Dimension: "MQF C4-C5: Personal & Ethics"
+  * Focus on resilience when facing errors, study habits, time management, handling group members ethically, academic integrity, and self-directed curiosity.
 
 [RULES]
-1. Relate each question contextually to the student's declared interests ({declared_interest_str}) and the matched foundation programme.
-2. Provide exactly 4 realistic options (A, B, C, D) per question.
-3. Indicate the single best/optimal answer via "correctIndex" (integer: 0, 1, 2, or 3).
-4. Return ONLY a valid JSON object matching the exact schema below, with no markdown code fences or conversational text.
+1. Relate each question contextually to the field of {program_context.get('title')} without making it technically intimidating.
+2. Provide exactly 4 clear, plausible options (A, B, C, D) per question.
+3. Set "correctIndex" to the single best/optimal answer (integer: 0, 1, 2, or 3).
+4. Provide a brief 1-sentence "explanation" written in encouraging language.
+5. Return ONLY a valid JSON object matching the exact schema below, with no markdown code fences or conversational text.
 
 [JSON SCHEMA]
 {{
@@ -106,8 +159,8 @@ Generate EXACTLY 10 Multiple-Choice Questions (MCQ) for this student's AI Assess
   "questions": [
     {{
       "id": 1,
-      "dimension": "Cognitive",
-      "category": "Logical Reasoning",
+      "dimension": "MQF C1-C3: Cognitive & Practical",
+      "category": "Cognitive Skills",
       "question": "Scenario-based question text...",
       "options": [
         "First option",
@@ -123,20 +176,137 @@ Generate EXACTLY 10 Multiple-Choice Questions (MCQ) for this student's AI Assess
 """
 
 
+def extract_json_payload(raw_text: str) -> Optional[Dict[str, Any]]:
+    """Safely extracts and parses JSON from an LLM response string."""
+    text = raw_text.strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    try:
+        return json.loads(text)
+    except Exception:
+        # Locate the outermost JSON object braces if extra text was included
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(text[start:end + 1])
+            except Exception:
+                pass
+    return None
+
+
+async def call_openai_cloud(prompt: str) -> Optional[Dict[str, Any]]:
+    """
+    Calls OpenAI Cloud API (Automatically used when OPENAI_API_KEY is configured in .env).
+    """
+    if not OPENAI_API_KEY:
+        return None
+
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": OPENAI_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a specialized JSON-only generator for psychometric academic assessments. Output strictly valid JSON."
+            },
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.4
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        try:
+            response = await client.post(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"]
+                parsed = extract_json_payload(content)
+                if parsed and "questions" in parsed and len(parsed["questions"]) > 0:
+                    parsed["_model_used"] = OPENAI_MODEL
+                    print(f"✅ [AI Assessment] Generated 10 MCQs via OpenAI Cloud (Model: {OPENAI_MODEL})")
+                    return parsed
+            else:
+                logger.warning(f"OpenAI Cloud ({OPENAI_MODEL}) returned {response.status_code}: {response.text[:120]}")
+        except Exception as e:
+            logger.error(f"Error calling OpenAI Cloud: {e}")
+
+    return None
+
+
+async def call_gemma_cloud(prompt: str) -> Optional[Dict[str, Any]]:
+    """
+    Calls the free-tier Gemma 4 (31B) Cloud model (gemma-4-31b-it) via Google Cloud API.
+    """
+    if not GEMINI_API_KEY:
+        return None
+
+    cloud_models = list(dict.fromkeys([GEMMA_CLOUD_MODEL, "gemma-4-31b-it", "gemma-4-26b-a4b-it", "gemini-2.5-flash"]))
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        for model in cloud_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+            gen_config: Dict[str, Any] = {"temperature": 0.4}
+            # gemini-* models support native JSON MIME type enforcement
+            if model.startswith("gemini-"):
+                gen_config["responseMimeType"] = "application/json"
+
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": prompt}]
+                    }
+                ],
+                "generationConfig": gen_config
+            }
+
+            try:
+                response = await client.post(url, headers={"Content-Type": "application/json"}, json=payload)
+                if response.status_code == 200:
+                    candidates = response.json().get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        raw_text = "".join(p.get("text", "") for p in parts)
+                        parsed = extract_json_payload(raw_text)
+                        if parsed and "questions" in parsed and len(parsed["questions"]) > 0:
+                            parsed["_model_used"] = model
+                            print(f"✅ [AI Assessment] Generated 10 MCQs via Cloud Model: {model}")
+                            return parsed
+                else:
+                    logger.warning(f"Cloud Model ({model}) returned {response.status_code}: {response.text[:120]}")
+            except Exception as e:
+                logger.error(f"Error calling Cloud Model ({model}): {e}")
+
+    return None
+
+
 async def call_ollama_cloud(prompt: str) -> Optional[Dict[str, Any]]:
     """
-    Calls the Ollama Cloud chat API using the free-tier model.
+    Calls the Ollama Cloud chat API (https://api.ollama.com/api/chat).
     """
+    if not OLLAMA_API_KEY:
+        return None
+
     url = f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat"
     headers = {
         "Authorization": f"Bearer {OLLAMA_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    # Free tier candidate models on Ollama Cloud
-    models_to_try = [OLLAMA_MODEL, "gpt-oss:20b", "nemotron-3-nano:30b"]
+    models_to_try = list(dict.fromkeys([OLLAMA_MODEL, "gemma4:31b"]))
 
-    async with httpx.AsyncClient(timeout=45.0) as client:
+    async with httpx.AsyncClient(timeout=35.0) as client:
         for model in models_to_try:
             payload = {
                 "model": model,
@@ -158,22 +328,19 @@ async def call_ollama_cloud(prompt: str) -> Optional[Dict[str, Any]]:
                 response = await client.post(url, headers=headers, json=payload)
                 if response.status_code == 200:
                     raw_content = response.json().get("message", {}).get("content", "").strip()
-                    # Strip any potential markdown wrappers if returned
-                    if raw_content.startswith("```json"):
-                        raw_content = raw_content[7:]
-                    if raw_content.startswith("```"):
-                        raw_content = raw_content[3:]
-                    if raw_content.endswith("```"):
-                        raw_content = raw_content[:-3]
-                    raw_content = raw_content.strip()
-
-                    parsed = json.loads(raw_content)
-                    if "questions" in parsed and len(parsed["questions"]) > 0:
+                    parsed = extract_json_payload(raw_content)
+                    if parsed and "questions" in parsed and len(parsed["questions"]) > 0:
+                        parsed["_model_used"] = model
+                        print(f"✅ [AI Assessment] Generated 10 MCQs via Ollama Cloud (Model: {model})")
                         return parsed
+                elif response.status_code == 402:
+                    logger.info(f"Ollama Cloud ({model}) quota reached (402). Switching immediately to Free Cloud Gemma 4 ({GEMMA_CLOUD_MODEL})...")
+                    break
                 else:
                     logger.warning(f"Ollama Cloud ({model}) returned {response.status_code}: {response.text[:120]}")
             except Exception as e:
                 logger.error(f"Error calling Ollama Cloud with {model}: {e}")
+                break
 
     return None
 
@@ -472,11 +639,14 @@ def get_static_fallback_questions(interests: List[str], program_context: Dict[st
 
 async def generate_rag_assessment(interests: List[str]) -> Dict[str, Any]:
     """
-    RAG Orchestration Pipeline:
-    1. Query ChromaDB for the matching Foundation testplan program.
+    RAG Orchestration Pipeline (Strictly Cloud-Only):
+    1. Query ChromaDB for the matching UniKL programme.
     2. Extract context and construct prompt incorporating declared interests.
-    3. Call Ollama Cloud to generate 10 MCQs (5 Cognitive, 5 Strengths).
-    4. Fall back to structured baseline questions if Ollama Cloud is offline.
+    3. Call Cloud LLM to generate 10 MCQs:
+       - Priority 1: OpenAI Cloud (if OPENAI_API_KEY is set in backend/.env)
+       - Priority 2: Free Cloud Gemma 4 31B (gemma-4-31b-it via GEMINI_API_KEY)
+       - Priority 3: Ollama Cloud (gemma4:31b via OLLAMA_API_KEY)
+    4. Fall back to structured baseline questions if offline.
     """
     # 1. Retrieve ChromaDB context
     program_context = retrieve_program_context(interests)
@@ -484,16 +654,34 @@ async def generate_rag_assessment(interests: List[str]) -> Dict[str, Any]:
     # 2. Build prompt
     prompt = build_assessment_prompt(interests, program_context)
 
-    # 3. Call Ollama Cloud
-    ai_response = await call_ollama_cloud(prompt)
+    # 3. Call Cloud LLM Providers (OpenAI Cloud -> Free Cloud Gemma 4 31B -> Ollama Cloud)
+    ai_response = None
+    source = "RAG_CONTEXT_ENHANCED_FALLBACK"
 
-    if ai_response and "questions" in ai_response and len(ai_response["questions"]) == 10:
-        questions = ai_response["questions"]
-        source = "OLLAMA_CLOUD_RAG"
+    if OPENAI_API_KEY:
+        ai_response = await call_openai_cloud(prompt)
+        if ai_response:
+            source = "OPENAI_CLOUD_RAG"
+
+    if not ai_response and GEMINI_API_KEY:
+        ai_response = await call_gemma_cloud(prompt)
+        if ai_response:
+            source = "GEMMA_4_31B_CLOUD_RAG"
+
+    if not ai_response and OLLAMA_API_KEY:
+        ai_response = await call_ollama_cloud(prompt)
+        if ai_response:
+            source = "OLLAMA_CLOUD_RAG"
+
+    if ai_response and "questions" in ai_response and len(ai_response["questions"]) >= 5:
+        questions = ai_response["questions"][:10]
+        model_used = ai_response.get("_model_used", "unknown")
     else:
         fallback = get_static_fallback_questions(interests, program_context)
         questions = fallback["questions"]
         source = "RAG_CONTEXT_ENHANCED_FALLBACK"
+        model_used = "static_fallback"
+        print("⚠️ [AI Assessment] Using static fallback questions (Cloud API unreachable)")
 
     # Normalize IDs (1 to 10) and ensure consistent dimensions (1-5 Cognitive, 6-10 Strengths)
     for idx, q in enumerate(questions):
@@ -507,6 +695,7 @@ async def generate_rag_assessment(interests: List[str]) -> Dict[str, Any]:
     return {
         "status": "success",
         "source": source,
+        "model_used": model_used,
         "declared_interests": interests,
         "matched_program": {
             "program_id": program_context.get("program_id"),

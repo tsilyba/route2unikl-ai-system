@@ -69,6 +69,9 @@ const DummyAIAssessment = () => {
 
         if (response.ok) {
           const data = await response.json();
+          console.log(
+            `🤖 [AI Assessment] Model Used: ${data.model_used || 'N/A'} | Source: ${data.source} | Matched Programme: ${data.matched_program?.title}`
+          );
           if (data.questions && data.questions.length > 0) {
             setQuestions(data.questions);
             setLoading(false);

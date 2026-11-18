@@ -77,51 +77,91 @@ const UploadResults = () => {
     });
   };
 
+  const CANDIDATE_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-3.8-flash"
+  ];
+
   const handleExtractWithAI = async () => {
     if (!file) return;
     setIsProcessing(true);
 
+    const prompt = `
+      You are an expert academic transcript parser for Malaysian SPM results.
+
+      1. Scan the image for ALL subjects and their letter grades.
+      2. Subject Separation (CRITICAL):
+         - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
+         - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
+         - Do NOT confuse them. They are two distinct subjects with separate grades.
+      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
+         - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
+         - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
+         - "PHYSICS" -> "FIZIK"
+         - "CHEMISTRY" -> "KIMIA"
+         - "BIOLOGY" -> "BIOLOGI"
+      4. Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
+      
+      Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
+    `;
+
     try {
       const imagePart = await fileToGenerativePart(file);
-      const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+      let success = false;
+      let lastError = null;
 
-      const prompt = `
-        You are an expert academic transcript parser for Malaysian SPM results.
-  
-        1. Scan the image for ALL subjects and their letter grades.
-        2. Subject Separation (CRITICAL):
-     - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
-     - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
-     - Do NOT confuse them. They are two distinct subjects with separate grades.
-      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
-     - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
-     - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
-     - "PHYSICS" -> "FIZIK"
-     - "CHEMISTRY" -> "KIMIA"
-     - "BIOLOGY" -> "BIOLOGI"
-      4 . Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
-        
-        Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
-      `;
+      // Try candidate models sequentially if a model experiences 503 high demand
+      for (const modelName of CANDIDATE_MODELS) {
+        try {
+          console.log(`Extracting SPM results with model: ${modelName}...`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          
+          const result = await model.generateContent({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }, imagePart],
+              },
+            ],
+            generationConfig: { responseMimeType: "application/json" },
+          });
 
-      const result = await model.generateContent({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }, imagePart],
-          },
-        ],
-        generationConfig: { responseMimeType: "application/json" },
-      });
+          const responseText = result.response.text();
+          const parsedJson = JSON.parse(responseText);
 
-      const responseText = result.response.text();
-      const parsedJson = JSON.parse(responseText);
+          if (Array.isArray(parsedJson) && parsedJson.length > 0) {
+            mergeResultsWithUI(parsedJson);
+            success = true;
+            console.log(`✓ SPM extraction completed successfully via ${modelName}!`);
+            break;
+          }
+        } catch (modelErr) {
+          console.warn(`Model ${modelName} encountered an issue:`, modelErr);
+          lastError = modelErr;
+          
+          // If 503 (high demand) or 429 (rate limit), continue to the next fallback model
+          const errMsg = modelErr?.message || "";
+          if (errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("429")) {
+            console.log(`Switching from ${modelName} to backup model due to high demand...`);
+            continue;
+          }
+        }
+      }
 
-      mergeResultsWithUI(parsedJson);
+      if (!success) {
+        throw lastError || new Error("Failed to extract results across all available models.");
+      }
 
     } catch (error) {
       console.error("AI Extractor Error:", error);
-      alert("Extraction failed. Ensure your API key is correct.");
+      const is503 = error?.message?.includes("503") || error?.message?.includes("high demand");
+      if (is503) {
+        alert("Google Gemini servers are currently experiencing high traffic. Please retry in a moment.");
+      } else {
+        alert("Extraction failed. Please verify that your result slip image is clear and your API key is active.");
+      }
     } finally {
       setIsProcessing(false);
     }

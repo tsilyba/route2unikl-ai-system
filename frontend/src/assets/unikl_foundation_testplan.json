@@ -1,5 +1,95 @@
 [
   {
+    "program_id": "unikl_midi_foundation_science_tech",
+    "title": "Foundation in Science and Technology",
+    "level": "Foundation",
+    "campuses": "UniKL MIDI",
+    "major_category": "Science & Engineering Technology",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Science & Engineering",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM/SPMV with at least five (5) credits including Mathematics and two (2) science subjects, with a pass in Bahasa Melayu and English;",
+    "short_description": "Fundamental studies preparing students for science and tech degrees.",
+    "knowledge_context": "Covers engineering mathematics, general chemistry, applied physics, and introductory computer technology to prepare students for engineering and technical bachelor degree programmes.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-science-and-technology",
+    "alternative_pathway_ids": [
+      "unikl_bmi_diploma_electrical_electronics",
+      "unikl_msi_diploma_mechanical_design"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Mathematics 1 (OpenLearn)",
+        "platform": "OpenLearn",
+        "subject": "Mathematics 1",
+        "link": "https://www.open.edu/openlearn/science-maths-technology/mathematics-science-and-technology/content-section-overview?active-tab=description-tab"
+      },
+      {
+        "title": "Chemistry 1 (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Chemistry 1",
+        "link": "https://openstax.org/books/chemistry-2e/pages/1-introduction"
+      },
+      {
+        "title": "Physic 1 (Khan Academy)",
+        "platform": "Khan Academy",
+        "subject": "Physic 1",
+        "link": "https://www.khanacademy.org/science/highschool-physics"
+      },
+      {
+        "title": "Introduction to Computer Technology 1 (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Introduction to Computer Technology 1",
+        "link": "https://openstax.org/books/introduction-computer-science/pages/1-1-computer-science"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_midi_foundation_creative_art_design",
+    "title": "Foundation in Creative Art and Design",
+    "level": "Foundation",
+    "campuses": "UniKL MIDI",
+    "major_category": "Creative Arts, Design & Multimedia",
+    "pathway_category": "Creative, Arts, Design & Multimedia",
+    "specialisation": "Arts & Design",
+    "min_spm_credits": 5,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits;",
+    "short_description": "Develop foundational skills in creative arts and design concepts.",
+    "knowledge_context": "Explores creative design thinking, elements and principles of visual design, storyboarding, and artistic composition for progression into multimedia, animation, and industrial design degrees.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-creative-art-and-design",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_multimedia",
+      "unikl_miit_diploma_animation"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Creative Design (OpenLearn)",
+        "platform": "OpenLearn",
+        "subject": "Creative Design",
+        "link": "https://www.open.edu/openlearn/science-maths-technology/design-innovation/design-thinking/content-section-0?intro=1"
+      },
+      {
+        "title": "Element and Principles of Design (Canva)",
+        "platform": "Canva",
+        "subject": "Element and Principles of Design",
+        "link": "https://www.canva.com/design-school/resources/how-to-use-principles-of-design/"
+      },
+      {
+        "title": "Storyboarding (Khan Academy)",
+        "platform": "Khan Academy",
+        "subject": "Storyboarding",
+        "link": "https://www.khanacademy.org/partner-content/hass-storytelling/storytelling-pixar-in-a-box"
+      }
+    ]
+  },
+  {
     "program_id": "unikl_miit_foundation_computer",
     "title": "Foundation in Computer Technology",
     "level": "Foundation",
@@ -8,27 +98,29 @@
     "pathway_category": "Computing & Digital Technology",
     "specialisation": "Information Technology",
     "min_spm_credits": 5,
-    "min_math_grade": "C",
-    "min_bm_grade": "C",
-    "min_bi_grade": "C",
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
     "requires_science": false,
-    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits.",
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits;",
     "short_description": "Your first step into the world of computing and technology.",
     "knowledge_context": "Introduces programming logic, computational thinking, discrete structures, and fundamental computer systems architecture. Designed for transition into software engineering, cybersecurity, and data science majors.",
     "link": "https://www.unikl.edu.my/program/foundation-in-computer-technology",
-    "alternative_pathway_ids": ["unikl_miit_diploma_it", "unikl_miit_diploma_networking"],
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_it",
+      "unikl_miit_diploma_networking"
+    ],
     "preparatory_guideline": [
       {
-       "title": "Learn Data Structures and Algorithms Visually",
-      "platform": "FreeCodeCamp",
-      "subject": "Data Structures & Algorithms",
-      "link": "https://www.freecodecamp.org/news/learn-data-structures-and-algorithms-visually/"
-
+        "title": "Data Structure and Algorithms (FreeCodeCamp)",
+        "platform": "FreeCodeCamp",
+        "subject": "Data Structure and Algorithms",
+        "link": "https://www.freecodecamp.org/news/learn-data-structures-and-algorithms-visually/"
       },
       {
-        "title": "Computer & Technology Basics Course for Absolute Beginners",
+        "title": "Intro to IT (YouTube)",
         "platform": "YouTube",
-        "subject": "Introductory Information Technology",
+        "subject": "Intro to IT",
         "link": "https://www.youtube.com/watch?v=y2kg3MOk1sY"
       }
     ]
@@ -43,26 +135,1410 @@
     "specialisation": "Business & Management",
     "min_spm_credits": 5,
     "min_math_grade": "NONE",
-    "min_bm_grade": "C",
-    "min_bi_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
     "requires_science": false,
-    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits.",
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits;",
     "short_description": "Core principles of business management and administration.",
     "knowledge_context": "Emphasizes core principles of management, basic accounting, business mathematics, microeconomics, and organizational behavior. Prepares candidates for bachelor pathways in international business, accounting, and supply chain.",
     "link": "https://www.unikl.edu.my/program/foundation-in-business",
-    "alternative_pathway_ids": ["unikl_mitec_diploma_industrial_logistics"],
+    "alternative_pathway_ids": [
+      "unikl_mitec_diploma_industrial_logistics",
+      "unikl_mimet_diploma_maritime_management"
+    ],
     "preparatory_guideline": [
       {
-        "title": "Introduction to Economics",
-        "platform": "YouTube",
-        "subject": "Economics",
-        "link": "https://www.youtube.com/watch?v=NngM_qdDMm8"
+        "title": "Business Fundamentals (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Business Fundamentals",
+        "link": "https://openstax.org/books/introduction-business/pages/1-introduction"
       },
       {
-        "title": "Introduction to Business Mathematics",
-        "platform": "Udemy",
-        "subject": "Business Mathematics",
-        "link": "https://www.udemy.com/course/business-mathematic/?srsltid=AU7gw4Xe_f_M1ah5MqlQE92L90WqxeVFHp2DdJNQPIhAdx5i6QieJa6h"
+        "title": "Principle of Management (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Principle of Management",
+        "link": "https://openstax.org/books/principles-management/pages/1-introduction"
+      },
+      {
+        "title": "Principle of Economics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Principle of Economics",
+        "link": "https://openstax.org/books/principles-economics-3e/pages/1-introduction"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_foundation_medical_mbbs",
+    "title": "Foundation in Medical Sciences - (MBBS)",
+    "level": "Foundation",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "B",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass SPM / SPMV / O-level with at least grade B in subjects inclusive: Mathematics or Additional Mathematics, Physics, Chemistry, Biology, one (1) other subjects",
+    "short_description": "Preparatory program for the Bachelor of Medicine and Surgery.",
+    "knowledge_context": "Rigorous pre-medical preparation covering human biology, organic and inorganic chemistry, foundation biochemistry, and medical sciences for entry into the Bachelor of Medicine and Bachelor of Surgery (MBBS).",
+    "link": "https://www.unikl.edu.my/program/foundation-in-medical-sciences-mbbs",
+    "alternative_pathway_ids": [
+      "unikl_mestech_diploma_medical_health_sciences",
+      "unikl_rcmp_diploma_nursing"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Chemistry (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Basic Chemistry",
+        "link": "https://openstax.org/books/chemistry-2e/pages/1-introduction"
+      },
+      {
+        "title": "Human Biology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Human Biology",
+        "link": "https://youtu.be/x0HaLufxwlc?si=7j577UaQ4XSkBiKh"
+      },
+      {
+        "title": "Foundation in Biochemistry (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Foundation in Biochemistry",
+        "link": "https://openstax.org/books/anatomy-and-physiology-2e/pages/2-introduction"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_foundation_medical_pharmacy",
+    "title": "Foundation in Medical Sciences - (Bachelor of Pharmacy)",
+    "level": "Foundation",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "B",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass SPM / SPMV / O-level with at least grade B in subjects inclusive: Mathematics or Additional Mathematics, Physics, Chemistry, Biology, one (1) other subjects",
+    "short_description": "Preparatory program for the Bachelor of Pharmacy degree.",
+    "knowledge_context": "Focuses on pharmaceutical chemistry fundamentals, cellular biology, and biochemistry foundations required for progression into the Bachelor of Pharmacy (Hons) programme.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-medical-sciences-pharmacy",
+    "alternative_pathway_ids": [
+      "unikl_rcmp_diploma_pharmacy",
+      "unikl_mestech_diploma_medical_lab_tech"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Chemistry Fundamentals (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Chemistry Fundamentals",
+        "link": "https://openstax.org/books/chemistry-2e/pages/1-introduction"
+      },
+      {
+        "title": "Cell Biology (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Cell Biology",
+        "link": "https://openstax.org/books/biology-2e/pages/1-introduction"
+      },
+      {
+        "title": "Biochemistry Foundations (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Biochemistry Foundations",
+        "link": "https://openstax.org/books/anatomy-and-physiology-2e/pages/2-introduction"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_micet_foundation_science",
+    "title": "Foundation in Science",
+    "level": "Foundation",
+    "campuses": "UniKL MICET",
+    "major_category": "Chemical, Bioengineering & Pure Sciences",
+    "pathway_category": "Chemical & Food Technology",
+    "specialisation": "Science & Engineering",
+    "min_spm_credits": 5,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits;",
+    "short_description": "Comprehensive grounding in core scientific principles.",
+    "knowledge_context": "Provides comprehensive grounding in biology, algebra, calculus, physics, and laboratory sciences tailored for chemical engineering, food technology, and applied science degrees.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-science",
+    "alternative_pathway_ids": [
+      "unikl_micet_diploma_chemical_engineering",
+      "unikl_micet_diploma_chemical_food"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Biology (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Biology",
+        "link": "https://openstax.org/books/biology-2e/pages/1-introduction"
+      },
+      {
+        "title": "Introduction to Algebra (OpenLearn)",
+        "platform": "OpenLearn",
+        "subject": "Introduction to Algebra",
+        "link": "https://www.open.edu/openlearn/science-maths-technology/introduction-algebra/content-section-0?intro=1"
+      },
+      {
+        "title": "Physics (Khan Academy)",
+        "platform": "Khan Academy",
+        "subject": "Physics",
+        "link": "https://www.khanacademy.org/science/highschool-physics"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_msi_foundation_science_arts",
+    "title": "Foundation in Science and Arts",
+    "level": "Foundation",
+    "campuses": "UniKL MSI",
+    "major_category": "Multidisciplinary Science & Management",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Science & Arts",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Engineering Programme (Bachelor) Pathway: Pass SPM / SPMV / O-Level with at least credits in FIVE (5) subjects including Mathematics and 1 Physical Science subject. | Engineering Technology Programme (Bachelor) Pathway: Pass SPM / SPMV / O-Level with at least credits in FIVE (5) subjects including Mathematics and 1 Science / Technical / Vocational subject. | Science Programme (Bachelor) Pathway: Pass SPM / SPMV / O-Level with at least credits in FIVE (5) subjects including Mathematics and 2 Science subjects. | Arts / IT / Business Programme (Bachelor) Pathway: Pass SPM / SPMV / O-Level with at least credits in FIVE (5) subjects including Mathematics.",
+    "short_description": "A balanced foundation covering both scientific and arts disciplines.",
+    "knowledge_context": "Combines foundational management, information and communication technology (ICT), economics, and applied sciences to offer flexible progression into technology management or engineering technology degrees.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-science-and-arts",
+    "alternative_pathway_ids": [
+      "unikl_msi_diploma_industrial_automation",
+      "unikl_mitec_diploma_industrial_logistics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Management (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Introduction to Management",
+        "link": "https://openstax.org/books/principles-management/pages/1-introduction"
+      },
+      {
+        "title": "Information and Communication Technology (ICT) (Microsoft Learn)",
+        "platform": "Microsoft Learn",
+        "subject": "Information and Communication Technology (ICT)",
+        "link": "https://learn.microsoft.com/en-us/training/paths/explore-basic-computer-concepts/"
+      },
+      {
+        "title": "Essentials of Economics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Essentials of Economics",
+        "link": "https://openstax.org/books/principles-economics-3e/pages/1-introduction"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_bmi_foundation_arts",
+    "title": "Foundation in Arts",
+    "level": "Foundation",
+    "campuses": "UniKL BMI",
+    "major_category": "Business, Humanities & Social Sciences",
+    "pathway_category": "Business Management & Logistics",
+    "specialisation": "Arts & Design",
+    "min_spm_credits": 5,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass Sijil Pelajaran Malaysia (SPM) with minimum 5 credits;",
+    "short_description": "Foundational knowledge in humanities and arts subjects.",
+    "knowledge_context": "Covers introduction to management, essentials of business law, basic ICT, and communication skills for students pursuing degrees in business, management, logistics, or humanities.",
+    "link": "https://www.unikl.edu.my/program/foundation-in-arts",
+    "alternative_pathway_ids": [
+      "unikl_mitec_diploma_industrial_logistics",
+      "unikl_miit_diploma_multimedia"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Management (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Introduction to Management",
+        "link": "https://openstax.org/books/principles-management/pages/1-introduction"
+      },
+      {
+        "title": "Business Law Essential (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Business Law Essential",
+        "link": "https://openstax.org/books/business-law-i-essentials-2e/pages/1-introduction"
+      },
+      {
+        "title": "Basic Information and Communication Technology (ICT) (Microsoft Learn)",
+        "platform": "Microsoft Learn",
+        "subject": "Basic Information and Communication Technology (ICT)",
+        "link": "https://learn.microsoft.com/en-us/training/paths/explore-basic-computer-concepts/"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miit_foundation_korean_engineering",
+    "title": "Foundation in Science and Technology for Korean University - Engineering",
+    "level": "Foundation",
+    "campuses": "UniKL MIIT",
+    "major_category": "International Engineering & Computing",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Science & Engineering",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM/SPMV with at least five (5) credits including Mathematics and two (2) science subjects, with a pass in Bahasa Melayu and English;",
+    "short_description": "Specialized engineering foundation pathway for Korean universities.",
+    "knowledge_context": "Specialized engineering preparatory pathway featuring intensive Korean language proficiency, engineering calculus, object-oriented programming, and computer hardware maintenance for degree studies at partner South Korean universities.",
+    "link": "https://www.unikl.edu.my/program/foundation-korean-engineering",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_it",
+      "unikl_bmi_diploma_electrical_electronics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Korean Language 1 (How to Study Korean)",
+        "platform": "How to Study Korean",
+        "subject": "Korean Language 1",
+        "link": "https://www.howtostudykorean.com/unit0/unit0lesson1/"
+      },
+      {
+        "title": "Calculus (Paul's Online Math Notes)",
+        "platform": "Paul's Online Math Notes",
+        "subject": "Calculus",
+        "link": "https://tutorial.math.lamar.edu/classes/calci/calci.aspx"
+      },
+      {
+        "title": "OOP (GeeksforGeeks)",
+        "platform": "GeeksforGeeks",
+        "subject": "OOP",
+        "link": "https://www.geeksforgeeks.org/java/object-oriented-programming-oops-concept-in-java/"
+      },
+      {
+        "title": "Introduction to PC Hardware and Maintenance (YouTube)",
+        "platform": "YouTube",
+        "subject": "Introduction to PC Hardware and Maintenance",
+        "link": "https://www.youtube.com/watch?v=VHhAZx4EvM8"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miit_diploma_it",
+    "title": "Diploma in Information Technology",
+    "level": "Diploma",
+    "campuses": "UniKL MIIT",
+    "major_category": "Information Technology & Computing",
+    "pathway_category": "Computing & Digital Technology",
+    "specialisation": "IT & Networking",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Create, develop and innovate with modern software technologies.",
+    "knowledge_context": "Equips students with hands-on skills in fundamentals of programming, computer networking, object-oriented system analysis and design, and data structures for software development roles.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-information-technology",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_networking",
+      "unikl_miit_diploma_multimedia"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Fundamentals of Programming (Cisco Networking Academy)",
+        "platform": "Cisco Networking Academy",
+        "subject": "Fundamentals of Programming",
+        "link": "https://www.netacad.com/catalogs/learn/programming"
+      },
+      {
+        "title": "Computer Network (GeeksforGeeks)",
+        "platform": "GeeksforGeeks",
+        "subject": "Computer Network",
+        "link": "https://www.geeksforgeeks.org/computer-networks/computer-network-tutorials/"
+      },
+      {
+        "title": "Object-Oriented System Analysis and Design (GeeksforGeeks)",
+        "platform": "GeeksforGeeks",
+        "subject": "Object-Oriented System Analysis and Design",
+        "link": "https://www.geeksforgeeks.org/system-design/object-oriented-system-object-oriented-analysis-design/"
+      },
+      {
+        "title": "Data Structure (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Data Structure",
+        "link": "https://openstax.org/books/introduction-computer-science/pages/3-1-introduction-to-data-structures-and-algorithms"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miit_diploma_multimedia",
+    "title": "Diploma in Multimedia",
+    "level": "Diploma",
+    "campuses": "UniKL MIIT",
+    "major_category": "Creative Arts, Design & Multimedia",
+    "pathway_category": "Creative, Arts, Design & Multimedia",
+    "specialisation": "IT & Multimedia",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Design engaging digital experiences across multiple media formats.",
+    "knowledge_context": "Trains students in basic graphic design, interactive multimedia development, storyboard concepts, digital audio-visual production, and 2D/3D digital animation.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-multimedia",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_animation",
+      "unikl_miit_diploma_it"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Graphic Design (Envato Tuts+)",
+        "platform": "Envato Tuts+",
+        "subject": "Basic Graphic Design",
+        "link": "https://design.tutsplus.com/c/graphic-design"
+      },
+      {
+        "title": "Introduction to Multimedia Development (Scribd)",
+        "platform": "Scribd",
+        "subject": "Introduction to Multimedia Development",
+        "link": "https://www.scribd.com/presentation/111758656/Multimedia"
+      },
+      {
+        "title": "Storyboard Concepts (StoryboardArt)",
+        "platform": "StoryboardArt",
+        "subject": "Storyboard Concepts",
+        "link": "https://storyboardart.org/storyboard-tutorials/storyboarding-intro/#t-1686088860123"
+      },
+      {
+        "title": "Digital Animation (Clip Studio)",
+        "platform": "Clip Studio",
+        "subject": "Digital Animation",
+        "link": "https://www.clipstudio.net/en/animation/beginners-guide/"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miit_diploma_animation",
+    "title": "Diploma in Animation",
+    "level": "Diploma",
+    "campuses": "UniKL MIIT",
+    "major_category": "Creative Arts, Design & Multimedia",
+    "pathway_category": "Creative, Arts, Design & Multimedia",
+    "specialisation": "IT & Multimedia",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Bring stories and ideas to life through digital animation.",
+    "knowledge_context": "Focuses on introduction to multimedia, animation principles and timing, character visualization and design, digital sculpting, and visual storytelling for creative studios.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-animation",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_multimedia"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Multimedia (YouTube)",
+        "platform": "YouTube",
+        "subject": "Introduction to Multimedia",
+        "link": "https://youtube.com/playlist?list=PLakSdFUggMeD1_oppO4XgXBbOuDtPpNLR&si=Dr2IXVPQBgu1zTaM"
+      },
+      {
+        "title": "Principles and Timing I (YouTube)",
+        "platform": "YouTube",
+        "subject": "Principles and Timing I",
+        "link": "https://youtu.be/DNWLbYTCGAg?si=yo0M8kBZd1nc8JJG"
+      },
+      {
+        "title": "Principles and Timing I (YouTube)",
+        "platform": "YouTube",
+        "subject": "Principles and Timing I",
+        "link": "https://www.youtube.com/watch?v=LX8ODs18gbY"
+      },
+      {
+        "title": "Character Visualization and Design for Digital Animation (YouTube)",
+        "platform": "YouTube",
+        "subject": "Character Visualization and Design for Digital Animation",
+        "link": "https://www.youtube.com/watch?v=iHkzW4lfkfo"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miit_diploma_networking",
+    "title": "Diploma in Networking Technology",
+    "level": "Diploma",
+    "campuses": "UniKL MIIT",
+    "major_category": "Information Technology & Computing",
+    "pathway_category": "Computing & Digital Technology",
+    "specialisation": "IT & Networking",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Build the backbone of connected systems and communication.",
+    "knowledge_context": "Covers fundamentals of programming, computer network architectures, electrical circuit analysis, and Cisco routing and switching essentials for network infrastructure and cybersecurity careers.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-networking-technology",
+    "alternative_pathway_ids": [
+      "unikl_miit_diploma_it",
+      "unikl_bmi_diploma_electrical_electronics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Fundamentals of Programming (YouTube)",
+        "platform": "YouTube",
+        "subject": "Fundamentals of Programming",
+        "link": "https://www.youtube.com/watch?v=zOjov-2OZ0E&t=2s"
+      },
+      {
+        "title": "Introduction to Networks (GeeksforGeeks)",
+        "platform": "GeeksforGeeks",
+        "subject": "Introduction to Networks",
+        "link": "https://www.geeksforgeeks.org/computer-networks/network-and-communication/"
+      },
+      {
+        "title": "Electrical Circuit Analysis (CircuitBread)",
+        "platform": "CircuitBread",
+        "subject": "Electrical Circuit Analysis",
+        "link": "https://www.circuitbread.com/tutorials/understanding-components-of-an-electrical-circuit"
+      },
+      {
+        "title": "Routing and Switching Essentials (ITExamAnswers)",
+        "platform": "ITExamAnswers",
+        "subject": "Routing and Switching Essentials",
+        "link": "https://itexamanswers.net/ccna-2-v7-0-curriculum-module-14-routing-concepts.html#ftoc-14-5-static-and-dynamic-routing"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_bmi_diploma_electrical_electronics",
+    "title": "Diploma of Electrical and Electronics Engineering Technology",
+    "level": "Diploma",
+    "campuses": "UniKL BMI",
+    "major_category": "Electrical & Electronics Engineering",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Electrical & Electronics",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with at least credits (minimum Grade C and higher) in Mathematics and Natural Sciences or Technical Based Subjects;",
+    "short_description": "Hands-on skills in electrical and electronic systems.",
+    "knowledge_context": "Provides practical training in engineering physics, electrical and electronics workshop practices, analog and digital electronics, and electrical circuit analysis.",
+    "link": "https://www.unikl.edu.my/program/diploma-electrical-electronics",
+    "alternative_pathway_ids": [
+      "unikl_msi_diploma_industrial_automation",
+      "unikl_mimet_diploma_marine_electrical"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Engineering Physics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Engineering Physics",
+        "link": "https://openstax.org/books/university-physics-volume-1/pages/1-introduction"
+      },
+      {
+        "title": "Fundamentals of Electrical and Electronics Workshop (YouTube)",
+        "platform": "YouTube",
+        "subject": "Fundamentals of Electrical and Electronics Workshop",
+        "link": "https://www.youtube.com/watch?v=kO3O9AMxLLY"
+      },
+      {
+        "title": "Fundamentals of Electronics (YouTube)",
+        "platform": "YouTube",
+        "subject": "Fundamentals of Electronics",
+        "link": "https://www.youtube.com/watch?v=uXr4lXYjXuU&list=PL0o_zxa4K1BV9E-N8tSExU1djL6slnjbL"
+      },
+      {
+        "title": "Fundamentals of Electrical Circuits (YouTube)",
+        "platform": "YouTube",
+        "subject": "Fundamentals of Electrical Circuits",
+        "link": "https://www.youtube.com/watch?v=Nbb5Lw14wvo"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mfi_diploma_welding",
+    "title": "Diploma of Engineering Technology in Welding",
+    "level": "Diploma",
+    "campuses": "UniKL MFI",
+    "major_category": "Mechanical & Manufacturing Engineering",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Mechanical & Manufacturing",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with at least credits (minimum Grade C and higher) in Mathematics and Natural Sciences or Technical Based Subjects;",
+    "short_description": "Advanced techniques and safety in industrial welding processes.",
+    "knowledge_context": "Covers industrial welding processes, metallurgy, welding joint design, symbols and blueprint reading, quality inspection, and fabrication safety standards.",
+    "link": "https://www.unikl.edu.my/program/diploma-welding",
+    "alternative_pathway_ids": [
+      "unikl_msi_diploma_mechanical_design",
+      "unikl_mimet_diploma_naval_architecture"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Welding Techniques (Hirebotics)",
+        "platform": "Hirebotics",
+        "subject": "Welding Techniques",
+        "link": "https://blog.hirebotics.com/types-of-welding-processes#what-is-welding"
+      },
+      {
+        "title": "Welding Joint, Symbols, and Blueprint Reading (Miller Welds)",
+        "platform": "Miller Welds",
+        "subject": "Welding Joint, Symbols, and Blueprint Reading",
+        "link": "https://www.millerwelds.com/en-us/resources/knowledge-hub/welding-basics/how-to-read-and-understand-weld-symbols?section=56f961c6-c34e-4c10-a439-03adfbf6c0ec"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mfi_diploma_automotive_maintenance",
+    "title": "Diploma of Engineering Technology in Automotive Maintenance",
+    "level": "Diploma",
+    "campuses": "UniKL MFI",
+    "major_category": "Automotive, Aviation & Transportation",
+    "pathway_category": "Aviation, Automotive & Transportation",
+    "specialisation": "Automotive & Transportation",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with at least credits (minimum Grade C and higher) in Mathematics and Natural Sciences or Technical Based Subjects;",
+    "short_description": "Practical skills in diagnosing and maintaining automotive vehicles.",
+    "knowledge_context": "Delivers hands-on competency in internal combustion engine fundamentals, modern engine technology, autotronics, vehicle diagnostics, and automotive air-conditioning systems.",
+    "link": "https://www.unikl.edu.my/program/diploma-automotive-maintenance",
+    "alternative_pathway_ids": [
+      "unikl_midi_diploma_railway_system",
+      "unikl_msi_diploma_mechanical_design"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Engine Fundamental (The Mechanical Engineering)",
+        "platform": "The Mechanical Engineering",
+        "subject": "Engine Fundamental",
+        "link": "https://themechanicalengineering.com/engine-parts-and-their-function/"
+      },
+      {
+        "title": "Engine Technology (The Mechanical Engineering)",
+        "platform": "The Mechanical Engineering",
+        "subject": "Engine Technology",
+        "link": "https://themechanicalengineering.com/what-are-different-types-of-engines/"
+      },
+      {
+        "title": "Autotronic (YouTube)",
+        "platform": "YouTube",
+        "subject": "Autotronic",
+        "link": "https://onlinecourses.nptel.ac.in/e-learning/preview/noc26_me101"
+      },
+      {
+        "title": "Automotive Airconditioning System (YouTube)",
+        "platform": "YouTube",
+        "subject": "Automotive Airconditioning System",
+        "link": "https://www.youtube.com/watch?v=nm0vXRiLTqs"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miat_diploma_avionics_maintenance",
+    "title": "Diploma of Engineering Technology in Avionics Maintenance",
+    "level": "Diploma",
+    "campuses": "UniKL MIAT",
+    "major_category": "Automotive, Aviation & Transportation",
+    "pathway_category": "Aviation, Automotive & Transportation",
+    "specialisation": "Aviation & Aerospace",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with at least credits (minimum Grade C and higher) in Mathematics and Natural Sciences or Technical Based Subjects;",
+    "short_description": "Specialized training in aircraft electronic systems maintenance.",
+    "knowledge_context": "Specializes in aviation physics, aircraft structures, flight instruments, aircraft electrical systems, and radar/navigation avionics maintenance compliant with aviation standards.",
+    "link": "https://www.unikl.edu.my/program/diploma-avionics",
+    "alternative_pathway_ids": [
+      "unikl_miat_diploma_aeroplane_maintenance",
+      "unikl_bmi_diploma_electrical_electronics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Physics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Physics",
+        "link": "https://openstax.org/books/university-physics-volume-1/pages/1-introduction"
+      },
+      {
+        "title": "Aircraft Structure (CFI Notebook)",
+        "platform": "CFI Notebook",
+        "subject": "Aircraft Structure",
+        "link": "https://www.cfinotebook.net/notebook/aerodynamics-and-performance/aircraft-components-and-structure"
+      },
+      {
+        "title": "Aircraft Instrument (YouTube)",
+        "platform": "YouTube",
+        "subject": "Aircraft Instrument",
+        "link": "https://www.youtube.com/watch?v=5Hij2UzJYlI"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_miat_diploma_aeroplane_maintenance",
+    "title": "Diploma of Engineering Technology in Aeroplane Maintenance",
+    "level": "Diploma",
+    "campuses": "UniKL MIAT",
+    "major_category": "Automotive, Aviation & Transportation",
+    "pathway_category": "Aviation, Automotive & Transportation",
+    "specialisation": "Aviation & Aerospace",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with at least credits (minimum Grade C and higher) in Mathematics and Natural Sciences or Technical Based Subjects;",
+    "short_description": "Comprehensive training in aircraft mechanical maintenance.",
+    "knowledge_context": "Provides comprehensive training in aerodynamics physics, airframe components and aircraft structures, turbine engine systems, and aircraft instrument maintenance.",
+    "link": "https://www.unikl.edu.my/program/diploma-aeroplane-maintenance",
+    "alternative_pathway_ids": [
+      "unikl_miat_diploma_avionics_maintenance",
+      "unikl_mfi_diploma_automotive_maintenance"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Physics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Physics",
+        "link": "https://openstax.org/books/university-physics-volume-1/pages/1-introduction"
+      },
+      {
+        "title": "Aircraft Structure (CFI Notebook)",
+        "platform": "CFI Notebook",
+        "subject": "Aircraft Structure",
+        "link": "https://www.cfinotebook.net/notebook/aerodynamics-and-performance/aircraft-components-and-structure"
+      },
+      {
+        "title": "Aircraft Instrument (YouTube)",
+        "platform": "YouTube",
+        "subject": "Aircraft Instrument",
+        "link": "https://www.youtube.com/watch?v=5Hij2UzJYlI"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mimet_diploma_marine_engineering",
+    "title": "Diploma of Engineering Technology in Marine Engineering",
+    "level": "Diploma",
+    "campuses": "UniKL MIMET",
+    "major_category": "Marine & Maritime Technology",
+    "pathway_category": "Marine & Maritime",
+    "specialisation": "Marine & Maritime",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Learn the mechanics and operation of ship propulsion systems.",
+    "knowledge_context": "Covers marine engineering propulsion systems, fundamentals of thermodynamics, shipboard electrical and electronics technology, and marine materials structure.",
+    "link": "https://www.unikl.edu.my/program/diploma-marine-engineering",
+    "alternative_pathway_ids": [
+      "unikl_mimet_diploma_naval_architecture",
+      "unikl_mimet_diploma_marine_electrical"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Marine Engineering (YouTube)",
+        "platform": "YouTube",
+        "subject": "Introduction to Marine Engineering",
+        "link": "https://youtube.com/playlist?list=PL_mDuIImDS9NhPTH9zXiFmNeyT_epj50V&si=aUnDmAFzxF9HqL64"
+      },
+      {
+        "title": "Fundamental of Thermodynamics (MIT OpenCourseWare)",
+        "platform": "MIT OpenCourseWare",
+        "subject": "Fundamental of Thermodynamics",
+        "link": "https://ocw.mit.edu/courses/3-020-thermodynamics-of-materials-spring-2021/video_galleries/lecture-videos/"
+      },
+      {
+        "title": "Fundamental of Electrical and Electronics Technology (All About Circuits)",
+        "platform": "All About Circuits",
+        "subject": "Fundamental of Electrical and Electronics Technology",
+        "link": "https://www.allaboutcircuits.com/video-lectures/"
+      },
+      {
+        "title": "Marine Materials Structure (YouTube)",
+        "platform": "YouTube",
+        "subject": "Marine Materials Structure",
+        "link": "https://youtube.com/playlist?list=PLM_d_LuuHjc0&si=Y42MS_foNwQ27NAX"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mimet_diploma_marine_electrical",
+    "title": "Diploma of Engineering Technology in Electrical & Electronics (Marine)",
+    "level": "Diploma",
+    "campuses": "UniKL MIMET",
+    "major_category": "Marine & Maritime Technology",
+    "pathway_category": "Marine & Maritime",
+    "specialisation": "Marine & Maritime",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Focus on electrical systems specific to marine environments.",
+    "knowledge_context": "Focuses on marine electrical power generation, shipboard electronics, occupational safety and health in shipyard operations, and technical mathematics.",
+    "link": "https://www.unikl.edu.my/program/diploma-marine-electrical",
+    "alternative_pathway_ids": [
+      "unikl_mimet_diploma_marine_engineering",
+      "unikl_bmi_diploma_electrical_electronics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Electrical and Electronics (All About Circuits)",
+        "platform": "All About Circuits",
+        "subject": "Introduction to Electrical and Electronics",
+        "link": "https://www.allaboutcircuits.com/video-lectures/"
+      },
+      {
+        "title": "Occupational Safety and Health in Industries and Shipyard Operations (SlideShare)",
+        "platform": "SlideShare",
+        "subject": "Occupational Safety and Health in Industries and Shipyard Operations",
+        "link": "https://www.slideshare.net/slideshow/occupational-safety-and-health-lecture-1-safety/84978492"
+      },
+      {
+        "title": "Technical Mathematics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mimet_diploma_naval_architecture",
+    "title": "Diploma of Engineering Technology (Naval Architecture and Shipbuilding)",
+    "level": "Diploma",
+    "campuses": "UniKL MIMET",
+    "major_category": "Marine & Maritime Technology",
+    "pathway_category": "Marine & Maritime",
+    "specialisation": "Marine & Maritime",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Learn the principles of designing and constructing watercraft.",
+    "knowledge_context": "Teaches technical mathematics, hull geometry, shipbuilding and vessel maintenance technology, hydrostatics, and marine welding technology.",
+    "link": "https://www.unikl.edu.my/program/diploma-naval-architecture",
+    "alternative_pathway_ids": [
+      "unikl_mimet_diploma_marine_engineering",
+      "unikl_mfi_diploma_welding"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Technical Mathematics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Shipbuilding and Maintenance Technology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Shipbuilding and Maintenance Technology",
+        "link": "https://youtube.com/playlist?list=PLsijYeAGkqQufpdadAyiV1qDm6y74PUnd&si=MXqDw6yKt2oYHdBx"
+      },
+      {
+        "title": "Welding Technology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Welding Technology",
+        "link": "https://youtube.com/playlist?list=PLyqSpQzTE6M-KwjFQByBvRx464XpCgOEC&si=nzBDnQB-KESaRZSw"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_msi_diploma_mechanical_design",
+    "title": "Diploma of Engineering Technology in Mechanical Design & Development",
+    "level": "Diploma",
+    "campuses": "UniKL MSI",
+    "major_category": "Mechanical & Manufacturing Engineering",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Mechanical & Manufacturing",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Skills in drafting, designing, and developing mechanical components.",
+    "knowledge_context": "Develops skills in technical mathematics, CAD engineering drawing, material science, mechanics of machines, and conventional machining processes.",
+    "link": "https://www.unikl.edu.my/program/diploma-mechanical-design",
+    "alternative_pathway_ids": [
+      "unikl_msi_diploma_industrial_automation",
+      "unikl_mfi_diploma_welding"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Technical Mathematics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Engineering Drawing (YouTube)",
+        "platform": "YouTube",
+        "subject": "Engineering Drawing",
+        "link": "https://www.youtube.com/watch?v=ht9GwXQMgpo"
+      },
+      {
+        "title": "Material Science (MIT OpenCourseWare)",
+        "platform": "MIT OpenCourseWare",
+        "subject": "Material Science",
+        "link": "https://ocw.mit.edu/courses/3-012-fundamentals-of-materials-science-fall-2005/"
+      },
+      {
+        "title": "Conventional Machining (YouTube)",
+        "platform": "YouTube",
+        "subject": "Conventional Machining",
+        "link": "https://youtube.com/playlist?list=PLtFsvKQGAvsH0VVL7wWA3hu5tY3ua3luG&si=tAKJAORsctvZcxhf"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_msi_diploma_industrial_automation",
+    "title": "Diploma of Electronic Engineering Technology (Industrial Automation and Control)",
+    "level": "Diploma",
+    "campuses": "UniKL MSI",
+    "major_category": "Electrical, Electronic & Automation Engineering",
+    "pathway_category": "Engineering & Technology",
+    "specialisation": "Mechanical & Manufacturing",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Master the systems that automate modern manufacturing.",
+    "knowledge_context": "Integrates technical mathematics, engineering science, electrical technology, PLC programming, robotics, and industrial C computing for smart manufacturing.",
+    "link": "https://www.unikl.edu.my/program/diploma-industrial-automation",
+    "alternative_pathway_ids": [
+      "unikl_bmi_diploma_electrical_electronics",
+      "unikl_msi_diploma_mechanical_design"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Technical Mathematics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Engineering Science (AnyFlip)",
+        "platform": "AnyFlip",
+        "subject": "Engineering Science",
+        "link": "https://anyflip.com/vcqeu/ngnk/basic"
+      },
+      {
+        "title": "Engineering Science (FlipHTML5)",
+        "platform": "FlipHTML5",
+        "subject": "Engineering Science",
+        "link": "https://online.fliphtml5.com/iasw/oxwb/#p=1"
+      },
+      {
+        "title": "Electrical Technology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Electrical Technology",
+        "link": "https://www.youtube.com/watch?v=Nbb5Lw14wvo"
+      },
+      {
+        "title": "Industrial Computing (W3Schools)",
+        "platform": "W3Schools",
+        "subject": "Industrial Computing",
+        "link": "https://www.w3schools.com/c/index.php"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_midi_diploma_railway_system",
+    "title": "Diploma of Engineering Technology (Railway System)",
+    "level": "Diploma",
+    "campuses": "UniKL MIDI",
+    "major_category": "Automotive, Aviation & Transportation",
+    "pathway_category": "Aviation, Automotive & Transportation",
+    "specialisation": "Automotive & Transportation",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Sijil Pelajaran Malaysia (SPM) or equivalent with at least credit in three (3) subjects including Mathematics and sciences or technical based subjects.",
+    "short_description": "Specialized knowledge in railway operations and maintenance.",
+    "knowledge_context": "Covers technical mathematics, basic electrical railway traction, rolling stock maintenance, signaling systems, and railway track safety operations.",
+    "link": "https://www.unikl.edu.my/program/diploma-railway-system",
+    "alternative_pathway_ids": [
+      "unikl_mfi_diploma_automotive_maintenance",
+      "unikl_bmi_diploma_electrical_electronics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Technical Mathematics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Basic Electrical Railway (YouTube)",
+        "platform": "YouTube",
+        "subject": "Basic Electrical Railway",
+        "link": "https://www.youtube.com/watch?v=GJbUI2D3rLY"
+      },
+      {
+        "title": "Railway Safety (TEC Training)",
+        "platform": "TEC Training",
+        "subject": "Railway Safety",
+        "link": "https://www.tectraining.co.uk/doc/A_Guide_to_Personal_Track_Safety.pdf"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_micet_diploma_chemical_food",
+    "title": "Diploma in Chemical Engineering Technology (Food)",
+    "level": "Diploma",
+    "campuses": "UniKL MICET",
+    "major_category": "Chemical & Food Technology",
+    "pathway_category": "Chemical & Food Technology",
+    "specialisation": "Chemical Engineering",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "SPM or equivalent with at least credit in mathematics and, natural sciences or technical based subjects.",
+    "short_description": "Apply chemical engineering principles to food production safely.",
+    "knowledge_context": "Combines technical mathematics, organic and analytical chemistry, principles of chemical processes, food safety, and engineering drawing for food manufacturing.",
+    "link": "https://www.unikl.edu.my/program/diploma-chemical-food",
+    "alternative_pathway_ids": [
+      "unikl_micet_diploma_chemical_engineering"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Technical Mathematics 1 (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics 1",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Organic and Analytical Chemistry (Alison)",
+        "platform": "Alison",
+        "subject": "Organic and Analytical Chemistry",
+        "link": "https://alison.com/course/advanced-chemistry-analytical-chemistry-and-organic-synthesis"
+      },
+      {
+        "title": "Principles of Chemical Process (YouTube)",
+        "platform": "YouTube",
+        "subject": "Principles of Chemical Process",
+        "link": "https://youtube.com/playlist?list=PLWvv1lbecE5Ikz8WXFc1vdWRqlRdSqSij&si=VuTGCWuxCkpHuYvT"
+      },
+      {
+        "title": "Engineering Drawing and Computing Competency (YouTube)",
+        "platform": "YouTube",
+        "subject": "Engineering Drawing and Computing Competency",
+        "link": "https://www.youtube.com/watch?v=ht9GwXQMgpo"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_micet_diploma_chemical_engineering",
+    "title": "Diploma in Chemical Engineering Technology",
+    "level": "Diploma",
+    "campuses": "UniKL MICET",
+    "major_category": "Chemical & Food Technology",
+    "pathway_category": "Chemical & Food Technology",
+    "specialisation": "Chemical Engineering",
+    "min_spm_credits": 3,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "SPM or equivalent with at least credit in mathematics and, natural sciences or technical based subjects.",
+    "short_description": "Core skills in chemical plant operations and processes.",
+    "knowledge_context": "Focuses on general chemistry, technical mathematics, organic and analytical chemistry, electrical technology, and chemical plant unit operations.",
+    "link": "https://www.unikl.edu.my/program/diploma-chemical-engineering",
+    "alternative_pathway_ids": [
+      "unikl_micet_diploma_chemical_food"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "General Chemistry (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "General Chemistry",
+        "link": "https://openstax.org/books/chemistry-2e/pages/1-1-chemistry-in-context"
+      },
+      {
+        "title": "Technical Mathematics 1 (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Technical Mathematics 1",
+        "link": "https://openstax.org/details/books/algebra-and-trigonometry-2e"
+      },
+      {
+        "title": "Organic & Analytical Chemistry (Alison)",
+        "platform": "Alison",
+        "subject": "Organic & Analytical Chemistry",
+        "link": "https://alison.com/course/advanced-chemistry-analytical-chemistry-and-organic-synthesis"
+      },
+      {
+        "title": "Electrical Technology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Electrical Technology",
+        "link": "https://www.youtube.com/watch?v=Nbb5Lw14wvo"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mimet_diploma_maritime_management",
+    "title": "Diploma in Maritime Management",
+    "level": "Diploma",
+    "campuses": "UniKL MIMET",
+    "major_category": "Marine & Maritime Operations",
+    "pathway_category": "Marine & Maritime",
+    "specialisation": "Marine & Maritime",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Business and operational management of maritime industries.",
+    "knowledge_context": "Covers introduction to maritime operations, maritime economics, principles of shipping, port and terminal management, and international freight logistics.",
+    "link": "https://www.unikl.edu.my/program/diploma-maritime-management",
+    "alternative_pathway_ids": [
+      "unikl_mitec_diploma_industrial_logistics"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction to Maritime Operations (YouTube)",
+        "platform": "YouTube",
+        "subject": "Introduction to Maritime Operations",
+        "link": "https://youtu.be/cNDXGJWgSvc?si=rU-syoLlhGYHWLTL"
+      },
+      {
+        "title": "Maritime Economics (Alison)",
+        "platform": "Alison",
+        "subject": "Maritime Economics",
+        "link": "https://alison.com/course/fundamentals-of-maritime-logistics"
+      },
+      {
+        "title": "Principles of Shipping (Alison)",
+        "platform": "Alison",
+        "subject": "Principles of Shipping",
+        "link": "https://alison.com/course/introduction-to-ships-ports-and-terminals"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mitec_diploma_industrial_logistics",
+    "title": "Diploma in Industrial Logistics",
+    "level": "Diploma",
+    "campuses": "UniKL MITEC",
+    "major_category": "Business, Management & Logistics",
+    "pathway_category": "Business Management & Logistics",
+    "specialisation": "Logistics",
+    "min_spm_credits": 3,
+    "min_math_grade": "NONE",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": false,
+    "min_requirements_text": "Pass SPM or its equivalent with a minimum of three (3) credits in any subject",
+    "short_description": "Master supply chain operations and material transport.",
+    "knowledge_context": "Trains students in basic statistics, fundamentals of logistics and supply chain management, warehouse inventory control, procurement, and principles of economics.",
+    "link": "https://www.unikl.edu.my/program/diploma-industrial-logistics",
+    "alternative_pathway_ids": [
+      "unikl_mimet_diploma_maritime_management"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Statistics (GeeksforGeeks)",
+        "platform": "GeeksforGeeks",
+        "subject": "Basic Statistics",
+        "link": "https://www.geeksforgeeks.org/maths/introduction-to-statistics/"
+      },
+      {
+        "title": "Fundamentals of Logistics (Abivin)",
+        "platform": "Abivin",
+        "subject": "Fundamentals of Logistics",
+        "link": "https://www.abivin.com/id/slides/slide/module-1-1-introduction-to-supply-chain-management-580"
+      },
+      {
+        "title": "Principles of Economics (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Principles of Economics",
+        "link": "https://openstax.org/books/principles-economics-3e/pages/1-introduction"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_diploma_pharmacy",
+    "title": "Diploma in Pharmacy",
+    "level": "Diploma",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Training in pharmaceutical preparation, dispensing, and care.",
+    "knowledge_context": "Covers introduction to pharmaceutics, pharmacology, human physiology, hospital and community dispensing practices, and pharmaceutical chemistry.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-pharmacy",
+    "alternative_pathway_ids": [
+      "unikl_mestech_diploma_medical_lab_tech",
+      "unikl_mestech_diploma_medical_health_sciences"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Introduction To Pharmaceutics (YouTube)",
+        "platform": "YouTube",
+        "subject": "Introduction To Pharmaceutics",
+        "link": "https://www.youtube.com/watch?v=2tdO3IuxZfE"
+      },
+      {
+        "title": "Introduction To Pharmacology (Geeky Medics)",
+        "platform": "Geeky Medics",
+        "subject": "Introduction To Pharmacology",
+        "link": "https://geekymedics.com/tag/pharmacy/"
+      },
+      {
+        "title": "Basic Physiology (Biology Online)",
+        "platform": "Biology Online",
+        "subject": "Basic Physiology",
+        "link": "https://www.biologyonline.com/tutorials/the-human-physiology"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_diploma_physiotherapy",
+    "title": "Diploma in Physiotherapy",
+    "level": "Diploma",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Learn rehabilitative techniques to restore physical movement.",
+    "knowledge_context": "Focuses on basic human anatomy and physiology, kinesiology and biomechanics, musculoskeletal rehabilitation, electrotherapy, and clinical patient care.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-physiotherapy",
+    "alternative_pathway_ids": [
+      "unikl_rcmp_diploma_nursing",
+      "unikl_mestech_diploma_medical_health_sciences"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Anatomy & Physiology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Basic Anatomy & Physiology",
+        "link": "https://youtube.com/playlist?list=PL8dPuuaLjXtOAKed_MxxWBNaPno5h3Zs8&si=lh_RdEXvHMeQAjhU"
+      },
+      {
+        "title": "Basic Kinesiology And Biomechanics (Trainer Academy)",
+        "platform": "Trainer Academy",
+        "subject": "Basic Kinesiology And Biomechanics",
+        "link": "https://traineracademy.org/cpt-textbook/biomechanics-and-kinesiology/"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_diploma_nursing",
+    "title": "Diploma in Nursing",
+    "level": "Diploma",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Comprehensive clinical skills for professional nursing care.",
+    "knowledge_context": "Provides clinical training in human anatomy and physiology, principles of nursing care, basic pharmacology, medical-surgical nursing, and patient safety.",
+    "link": "https://www.unikl.edu.my/program/diploma-in-nursing",
+    "alternative_pathway_ids": [
+      "unikl_rcmp_diploma_physiotherapy",
+      "unikl_mestech_diploma_medical_health_sciences"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Anatomy & Physiology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Basic Anatomy & Physiology",
+        "link": "https://youtube.com/playlist?list=PL8dPuuaLjXtOAKed_MxxWBNaPno5h3Zs8&si=lh_RdEXvHMeQAjhU"
+      },
+      {
+        "title": "Principles Of Nursing (YouTube)",
+        "platform": "YouTube",
+        "subject": "Principles Of Nursing",
+        "link": "https://www.youtube.com/playlist?list=PLj9YgcGzjQqyLx17FRmC_CjU0IOFsJ8h-"
+      },
+      {
+        "title": "Basic Pharmacology (Geeky Medics)",
+        "platform": "Geeky Medics",
+        "subject": "Basic Pharmacology",
+        "link": "https://geekymedics.com/tag/pharmacy/"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_rcmp_diploma_medical_imaging",
+    "title": "Diploma in Medical Imaging",
+    "level": "Diploma",
+    "campuses": "UniKL RCMP",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Operate advanced diagnostic imaging equipment like X-rays and MRIs.",
+    "knowledge_context": "Covers fundamental radiation physics for radiographers, pathology, occupational safety and health, human anatomy and physiology, and diagnostic X-ray/CT imaging techniques.",
+    "link": "https://www.unikl.edu.my/program/diploma-medical-imaging",
+    "alternative_pathway_ids": [
+      "unikl_mestech_diploma_medical_lab_tech",
+      "unikl_rcmp_diploma_physiotherapy"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Fundamental Physics for Radiographer (Radiology Masterclass)",
+        "platform": "Radiology Masterclass",
+        "subject": "Fundamental Physics for Radiographer",
+        "link": "https://www.radiologymasterclass.co.uk/tutorials/physics/x-ray_physics_production"
+      },
+      {
+        "title": "Fundamental Of Pathology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Fundamental Of Pathology",
+        "link": "https://youtube.com/playlist?list=PLYcLrRDaR8_ef4PE6gduEK-Gpx4lawX2t&si=nDkqCgQpbRSEjbvJ"
+      },
+      {
+        "title": "Fundamental Of Occupational Safety and Health (ITCILO)",
+        "platform": "ITCILO",
+        "subject": "Fundamental Of Occupational Safety and Health",
+        "link": "https://training.itcilo.org/actrav_cdrom2/en/osh/intro/inmain.htm"
+      },
+      {
+        "title": "Basic Anatomy & Physiology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Basic Anatomy & Physiology",
+        "link": "https://youtube.com/playlist?list=PL8dPuuaLjXtOAKed_MxxWBNaPno5h3Zs8&si=lh_RdEXvHMeQAjhU"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mestech_diploma_medical_lab_tech",
+    "title": "Diploma of Medical Laboratory Technology",
+    "level": "Diploma",
+    "campuses": "UniKL MESTECH",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Perform critical laboratory tests to assist in medical diagnoses.",
+    "knowledge_context": "Trains students in basic microbiology, clinical biochemistry, human anatomy and physiology, hematology, and diagnostic pathology laboratory analysis.",
+    "link": "https://www.unikl.edu.my/program/diploma-medical-laboratory",
+    "alternative_pathway_ids": [
+      "unikl_rcmp_diploma_pharmacy",
+      "unikl_mestech_diploma_medical_health_sciences"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Basic Microbiology (LibreTexts)",
+        "platform": "LibreTexts",
+        "subject": "Basic Microbiology",
+        "link": "https://bio.libretexts.org/Courses/North_Carolina_State_University/MB352_General_Microbiology_Laboratory_2021_(Lee)/03%3A_Microscopy/3.01%3A_Introduction_to_the_Microscope"
+      },
+      {
+        "title": "Biochemistry (YouTube)",
+        "platform": "YouTube",
+        "subject": "Biochemistry",
+        "link": "https://www.youtube.com/watch?v=BjzH4Hr_wGg&t=1s"
+      },
+      {
+        "title": "Human Anatomy & Physiology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Human Anatomy & Physiology",
+        "link": "https://youtube.com/playlist?list=PL8dPuuaLjXtOAKed_MxxWBNaPno5h3Zs8&si=lh_RdEXvHMeQAjhU"
+      },
+      {
+        "title": "Pathology (YouTube)",
+        "platform": "YouTube",
+        "subject": "Pathology",
+        "link": "https://youtube.com/playlist?list=PLYcLrRDaR8_ef4PE6gduEK-Gpx4lawX2t&si=nDkqCgQpbRSEjbvJ"
+      }
+    ]
+  },
+  {
+    "program_id": "unikl_mestech_diploma_medical_health_sciences",
+    "title": "Diploma in Medical and Health Sciences",
+    "level": "Diploma",
+    "campuses": "UniKL MESTECH",
+    "major_category": "Health & Medical Sciences",
+    "pathway_category": "Health & Medical Sciences",
+    "specialisation": "Allied & Health",
+    "min_spm_credits": 5,
+    "min_math_grade": "C",
+    "min_bm_grade": "E",
+    "min_bi_grade": "E",
+    "requires_science": true,
+    "min_requirements_text": "Pass in SPM or its equivalent with pass in Bahasa Melayu and English and five (5) credits in the following subjects: Mathematics, one (1) Science subject (Biology, Chemistry, Physics, General Science/Applied Science) and any other three (3) subjects including Bahasa Melayu and/or English;",
+    "short_description": "Broad foundational knowledge in various health science disciplines.",
+    "knowledge_context": "Prepares assistant medical officers in operation theatre procedures, human anatomy and physiology, emergency medicine, trauma care, and community clinical health.",
+    "link": "https://www.unikl.edu.my/program/diploma-medical-health",
+    "alternative_pathway_ids": [
+      "unikl_rcmp_diploma_nursing",
+      "unikl_rcmp_diploma_physiotherapy"
+    ],
+    "preparatory_guideline": [
+      {
+        "title": "Operation Theatre (YouTube)",
+        "platform": "YouTube",
+        "subject": "Operation Theatre",
+        "link": "https://www.youtube.com/watch?v=40EFUho0xP0"
+      },
+      {
+        "title": "Human Anatomy & Physiology (OpenStax)",
+        "platform": "OpenStax",
+        "subject": "Human Anatomy & Physiology",
+        "link": "https://openstax.org/books/anatomy-and-physiology-2e/pages/1-1-overview-of-anatomy-and-physiology"
+      },
+      {
+        "title": "Emergency Medicine and Trauma Care (YouTube)",
+        "platform": "YouTube",
+        "subject": "Emergency Medicine and Trauma Care",
+        "link": "https://www.youtube.com/watch?v=jcGlaj22HSE"
       }
     ]
   }

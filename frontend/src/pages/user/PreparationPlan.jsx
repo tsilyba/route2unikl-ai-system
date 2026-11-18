@@ -1,13 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, auth } from '../../firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import Stepper from '../../components/Stepper';
 import testplanData from '../../assets/unikl_foundation_testplan.json';
 
+const getPlatformStyle = (platform = '') => {
+  const p = platform.toLowerCase();
+  if (p.includes('youtube')) {
+    return { bg: 'bg-red-100 text-red-700', icon: '▶' };
+  }
+  if (p.includes('freecodecamp')) {
+    return { bg: 'bg-purple-100 text-purple-700', icon: '💻' };
+  }
+  if (p.includes('openstax')) {
+    return { bg: 'bg-blue-100 text-blue-700', icon: '📘' };
+  }
+  if (p.includes('openlearn')) {
+    return { bg: 'bg-indigo-100 text-indigo-700', icon: '🏛️' };
+  }
+  if (p.includes('khan academy')) {
+    return { bg: 'bg-emerald-100 text-emerald-700', icon: '🌱' };
+  }
+  if (p.includes('geeksforgeeks')) {
+    return { bg: 'bg-green-100 text-green-800', icon: '⚡' };
+  }
+  if (p.includes('mit')) {
+    return { bg: 'bg-rose-100 text-rose-700', icon: '🎓' };
+  }
+  if (p.includes('cisco') || p.includes('microsoft')) {
+    return { bg: 'bg-cyan-100 text-cyan-800', icon: '🌐' };
+  }
+  if (p.includes('alison')) {
+    return { bg: 'bg-teal-100 text-teal-800', icon: '📖' };
+  }
+  return { bg: 'bg-amber-100 text-amber-800', icon: '🎓' };
+};
+
 const PreparationPlan = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
+  const [levelFilter, setLevelFilter] = useState('Foundation');
   const [completedItems, setCompletedItems] = useState({});
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -28,6 +61,9 @@ const PreparationPlan = () => {
 
       const found = testplanData.find(p => p.program_id === targetId) || testplanData[0];
       setSelectedProgram(found);
+      if (found?.level) {
+        setLevelFilter(found.level);
+      }
 
       // Save step 5 completion to Firestore
       try {
@@ -42,6 +78,13 @@ const PreparationPlan = () => {
 
     return () => unsubscribe();
   }, [location.search, navigate]);
+
+  const handleSelectProgram = (prog) => {
+    setSelectedProgram(prog);
+    setLevelFilter(prog.level);
+    setCompletedItems({});
+    localStorage.setItem('selected_prep_program_id', prog.program_id);
+  };
 
   const toggleCheck = (idx) => {
     setCompletedItems(prev => ({
@@ -63,6 +106,8 @@ const PreparationPlan = () => {
   const completedCount = Object.values(completedItems).filter(Boolean).length;
   const progressPercent = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
 
+  const filteredProgramsByLevel = testplanData.filter(p => p.level === levelFilter);
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-lg p-6 md:p-10 border border-gray-100">
@@ -71,50 +116,84 @@ const PreparationPlan = () => {
         <Stepper currentStep={5} />
 
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10">
+        <div className="text-center max-w-3xl mx-auto mb-8">
           <span className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider">
             Step 5 • Academic Readiness
           </span>
           <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mt-3 tracking-tight">
-            Personalized Foundation Preparation Plan
+            Personalized Academic Preparation Plan
           </h1>
           <p className="text-gray-500 text-sm mt-2 leading-relaxed">
             Bridge the transition from secondary school to university level. Complete these curated online learning
-            modules before orientation to excel in your foundation coursework.
+            modules before orientation to excel in your UniKL coursework.
           </p>
         </div>
 
-        {/* PROGRAM SELECTOR TABS */}
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {testplanData.map((prog) => {
-            const isSelected = prog.program_id === selectedProgram.program_id;
-            return (
-              <button
-                key={prog.program_id}
-                onClick={() => {
-                  setSelectedProgram(prog);
-                  localStorage.setItem('selected_prep_program_id', prog.program_id);
+        {/* LEVEL SWITCHER & PROGRAMME SELECTOR */}
+        <div className="bg-gray-50 p-5 rounded-3xl border border-gray-100 mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              {['Foundation', 'Diploma'].map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => setLevelFilter(lvl)}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                    levelFilter === lvl
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  {lvl} Programmes ({testplanData.filter(p => p.level === lvl).length})
+                </button>
+              ))}
+            </div>
+
+            <div className="w-full sm:w-80">
+              <select
+                value={selectedProgram.program_id}
+                onChange={(e) => {
+                  const found = testplanData.find(p => p.program_id === e.target.value);
+                  if (found) handleSelectProgram(found);
                 }}
-                className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                  isSelected
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <span>{prog.title}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${isSelected ? 'bg-blue-700 text-blue-100' : 'bg-gray-200 text-gray-700'}`}>
-                  {prog.campuses}
-                </span>
-              </button>
-            );
-          })}
+                {testplanData.map((p) => (
+                  <option key={p.program_id} value={p.program_id}>
+                    [{p.level}] {p.title} ({p.campuses})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
+            {filteredProgramsByLevel.map((prog) => {
+              const isSelected = prog.program_id === selectedProgram.program_id;
+              return (
+                <button
+                  key={prog.program_id}
+                  onClick={() => handleSelectProgram(prog)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <span>{prog.title}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-blue-700 text-blue-100' : 'bg-gray-100 text-gray-500'}`}>
+                    {prog.campuses}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* PROGRAM BANNER & READINESS PROGRESS */}
         <div className="bg-gradient-to-r from-blue-50 via-indigo-50/50 to-blue-50 rounded-3xl p-6 md:p-8 border border-blue-100 mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">
-              <span>Target Enrollment</span>
+              <span>{selectedProgram.level} Pathway</span>
               <span>•</span>
               <span>{selectedProgram.campuses}</span>
             </div>
@@ -125,10 +204,13 @@ const PreparationPlan = () => {
               Specialisation: <strong className="text-gray-800">{selectedProgram.specialisation}</strong> | 
               Pathway: <strong className="text-gray-800">{selectedProgram.pathway_category}</strong>
             </p>
+            <p className="text-gray-500 text-xs mt-2 max-w-2xl">
+              <strong>Min. Entry Requirement:</strong> {selectedProgram.min_requirements_text}
+            </p>
           </div>
 
           {/* Progress Tracker Card */}
-          <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm w-full md:w-64">
+          <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-sm w-full md:w-64 shrink-0">
             <div className="flex justify-between items-center text-xs font-bold mb-2">
               <span className="text-gray-500">Preparation Progress</span>
               <span className="text-blue-600">{progressPercent}%</span>
@@ -164,9 +246,7 @@ const PreparationPlan = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {guidelines.map((course, idx) => {
               const isDone = !!completedItems[idx];
-              const isYouTube = course.platform.toLowerCase().includes('youtube');
-              const isFreeCodeCamp = course.platform.toLowerCase().includes('freecodecamp');
-              const isUdemy = course.platform.toLowerCase().includes('udemy');
+              const badgeStyle = getPlatformStyle(course.platform);
 
               return (
                 <div 
@@ -179,19 +259,13 @@ const PreparationPlan = () => {
                 >
                   <div>
                     {/* Platform Badge & Subject */}
-                    <div className="flex justify-between items-center mb-4">
-                      <span className={`text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 ${
-                        isFreeCodeCamp 
-                          ? 'bg-purple-100 text-purple-700' 
-                          : isYouTube 
-                          ? 'bg-red-100 text-red-700' 
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        <span>{isYouTube ? '▶' : isFreeCodeCamp ? '💻' : '🎓'}</span>
+                    <div className="flex justify-between items-center mb-4 gap-2">
+                      <span className={`text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shrink-0 ${badgeStyle.bg}`}>
+                        <span>{badgeStyle.icon}</span>
                         <span>{course.platform}</span>
                       </span>
 
-                      <span className="text-xs text-gray-400 font-semibold">
+                      <span className="text-xs text-gray-400 font-semibold text-right truncate">
                         {course.subject}
                       </span>
                     </div>
@@ -202,7 +276,7 @@ const PreparationPlan = () => {
                     </h4>
 
                     <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-                      Recommended preparation topic for foundational competencies in {course.subject}.
+                      Recommended preparation module for foundational competencies in <strong>{course.subject}</strong>.
                     </p>
                   </div>
 
@@ -254,21 +328,24 @@ const PreparationPlan = () => {
         {selectedProgram.alternative_pathway_ids && selectedProgram.alternative_pathway_ids.length > 0 && (
           <div className="border-2 border-dashed border-blue-200 rounded-3xl p-6 mb-10 bg-blue-50/30">
             <h4 className="text-sm font-extrabold text-blue-900 mb-1 flex items-center gap-2">
-              <span>🔄 Alternative Technical Pathway Advisory</span>
+              <span>🔄 Related / Alternative UniKL Pathways</span>
             </h4>
             <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-              If you prefer hands-on technical training rather than pre-university academic foundation, 
-              UniKL also offers direct diploma entry pathways related to this field:
+              Click any related pathway below to view its preparation plan and online courses:
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedProgram.alternative_pathway_ids.map((altId, idx) => (
-                <span 
-                  key={idx}
-                  className="bg-white border border-blue-200 text-blue-800 text-xs font-semibold px-3 py-1 rounded-xl shadow-sm"
-                >
-                  {altId.replace(/_/g, ' ').replace('unikl ', '').toUpperCase()}
-                </span>
-              ))}
+              {selectedProgram.alternative_pathway_ids.map((altId, idx) => {
+                const altProg = testplanData.find(p => p.program_id === altId);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => altProg && handleSelectProgram(altProg)}
+                    className="bg-white hover:bg-blue-600 hover:text-white border border-blue-200 text-blue-800 text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition cursor-pointer"
+                  >
+                    {altProg ? `${altProg.title} (${altProg.campuses})` : altId.replace(/_/g, ' ').toUpperCase()} →
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -314,4 +391,3 @@ const PreparationPlan = () => {
 };
 
 export default PreparationPlan;
-

@@ -94,11 +94,12 @@ const Recommendation = () => {
   };
 
   const calculateClientSideRecommendations = (interests, grades, assessmentScore) => {
-    const isTech = interests.some(i => i.toLowerCase().includes('comput') || i.toLowerCase().includes('tech'));
-    
+    const lowerInterests = interests.map(i => i.trim().toLowerCase());
+
     return testplanData.map((prog) => {
-      const isComputer = prog.program_id.includes('computer');
-      const interestMatch = (isComputer && isTech) || (!isComputer && !isTech) ? 96 : 65;
+      const pathway = (prog.pathway_category || '').toLowerCase();
+      const isDirectInterest = lowerInterests.some(i => i === pathway || pathway.includes(i) || i.includes(pathway));
+      const interestMatch = isDirectInterest ? 98 : 62;
       const academicMatch = 94;
       const matchPct = Math.round((0.35 * academicMatch) + (0.35 * interestMatch) + (0.30 * assessmentScore));
 
@@ -109,8 +110,8 @@ const Recommendation = () => {
         is_eligible: true,
         fit_reasons: [
           `Aligned with declared interest in ${prog.pathway_category}`,
-          'SPM requirements verified for minimum credits and core subjects',
-          'Assessment scores indicate strong aptitude for this academic domain'
+          `SPM requirements verified (${prog.min_spm_credits} minimum credits)`,
+          `Assessment metrics indicate strong aptitude for ${prog.specialisation}`
         ],
         score_breakdown: {
           academic: academicMatch,

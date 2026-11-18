@@ -17,7 +17,20 @@ GRADE_SCALE = {
     "D": 45, "E": 40, "G": 0
 }
 
+# SPM Grading Rules:
+# - Credit (Kepujian): C or better
+# - Pass (Lulus): E or better
 CREDIT_GRADES = {"A+", "A", "A-", "B+", "B", "C+", "C"}
+PASS_GRADES = {"A+", "A", "A-", "B+", "B", "C+", "C", "D", "E"}
+GRADE_B_OR_BETTER = {"A+", "A", "A-", "B+", "B"}
+
+SCIENCE_TECH_SUBJECTS = {
+    "FIZIK", "PHYSICS", "KIMIA", "CHEMISTRY", "BIOLOGI", "BIOLOGY",
+    "SAINS", "SCIENCE", "SAINS TAMBAHAN", "SAINS KOMPUTER",
+    "PENGAJIAN KEJURUTERAAN MEKANIKAL", "PENGAJIAN KEJURUTERAAN AWAM",
+    "PENGAJIAN KEJURUTERAAN ELEKTRIK & ELEKTRONIK", "LUKISAN KEJURUTERAAN",
+    "GRAFIK KOMUNIKASI TEKNIKAL", "REKA CIPTA"
+}
 
 
 def load_foundation_programs() -> List[Dict[str, Any]]:
@@ -95,30 +108,38 @@ def evaluate_academic_match(grades: List[Dict[str, str]], program: Dict[str, Any
         if bi_pts < bi_req_pts:
             unmet_requirements.append(f"Bahasa Inggeris must be grade {bi_min} or higher (current: {bi_actual or 'N/A'}).")
 
-    # 4. Math Grade check
+    # 4. Math Grade check (allows Matematik or Matematik Tambahan for MBBS/Pharmacy)
     math_min = program.get("min_math_grade", "C")
     math_actual = grade_map.get("MATEMATIK", "")
+    add_math_actual = grade_map.get("MATEMATIK TAMBAHAN", "")
     if math_min and math_min != "NONE":
-        math_pts = GRADE_SCALE.get(math_actual, 0)
+        math_pts = max(GRADE_SCALE.get(math_actual, 0), GRADE_SCALE.get(add_math_actual, 0))
         math_req_pts = GRADE_SCALE.get(math_min, 60)
         if math_pts < math_req_pts:
             unmet_requirements.append(f"Matematik must be grade {math_min} or higher (current: {math_actual or 'N/A'}).")
+
+    # 5. Science / Technical Subject check when requires_science is True
+    if program.get("requires_science"):
+        req_grade_set = GRADE_B_OR_BETTER if math_min == "B" else CREDIT_GRADES
+        sci_credits = [
+            sub for sub, grd in grade_map.items()
+            if (sub in SCIENCE_TECH_SUBJECTS or any(k in sub for k in ["FIZIK", "KIMIA", "BIOLOGI", "SAINS", "KEJURUTERAAN"]))
+            and grd in req_grade_set
+        ]
+        # Only flag if the user actually entered >4 subjects (so basic 4-subject entries aren't penalized unfairly)
+        if len(grade_map) > 4 and not sci_credits:
+            req_lbl = "Grade B" if math_min == "B" else "Credit (Grade C)"
+            unmet_requirements.append(f"Requires {req_lbl} or higher in a Science or Technical subject.")
 
     # Base academic score calculation
     base_avg = (total_points / graded_count) if graded_count > 0 else 70
 
     # Specific bonuses for domain subjects
     bonus = 0
-    if "computer" in program.get("program_id", "").lower():
-        if grade_map.get("MATEMATIK") in {"A+", "A", "A-"}:
-            bonus += 8
-        if grade_map.get("MATEMATIK TAMBAHAN") in CREDIT_GRADES:
-            bonus += 5
-    elif "business" in program.get("program_id", "").lower():
-        if grade_map.get("MATEMATIK") in CREDIT_GRADES:
-            bonus += 5
-        if grade_map.get("BAHASA INGGERIS") in {"A+", "A", "A-"}:
-            bonus += 5
+    if grade_map.get("MATEMATIK") in {"A+", "A", "A-"}:
+        bonus += 5
+    if grade_map.get("BAHASA INGGERIS") in {"A+", "A", "A-"}:
+        bonus += 4
 
     raw_score = min(100, base_avg + bonus)
 
@@ -136,13 +157,13 @@ def evaluate_academic_match(grades: List[Dict[str, str]], program: Dict[str, Any
         "is_eligible": True,
         "reasons": [
             f"✓ All minimum requirements met ({credits_count} credits achieved).",
-            f"✓ Core language & STEM prerequisites satisfied."
+            f"✓ Core language & subject prerequisites satisfied."
         ]
     }
 
 
 def evaluate_interest_match(interests: List[str], program: Dict[str, Any]) -> float:
-    """Calculates interest alignment score (0-100)."""
+    """Calculates interest alignment score (0-100) across all 8 pathway categories."""
     if not interests:
         return 70.0
 
@@ -151,29 +172,20 @@ def evaluate_interest_match(interests: List[str], program: Dict[str, Any]) -> fl
     major = program.get("major_category", "").lower()
     specialisation = program.get("specialisation", "").lower()
 
-    # Exact or high keyword overlap
-    if pathway in user_text or any(i.lower() in pathway for i in interests):
+    # 1. Exact pathway category match (Student selected this exact Interest Card in Step 1)
+    if any(i.strip().lower() == pathway for i in interests) or pathway in user_text:
         return 98.0
+
+    # 2. High overlap with major category or specialisation
     if major in user_text or specialisation in user_text:
         return 92.0
 
-    # Domain specific matching
-    if "computer" in program.get("program_id", "").lower():
-        if any(w in user_text for w in ["computing", "software", "it", "technology", "multimedia", "digital"]):
-            return 96.0
-        elif any(w in user_text for w in ["engineering", "science"]):
-            return 80.0
-        else:
-            return 60.0
-    elif "business" in program.get("program_id", "").lower():
-        if any(w in user_text for w in ["business", "management", "logistics", "marketing", "finance", "accounting"]):
-            return 96.0
-        elif any(w in user_text for w in ["arts", "social"]):
-            return 80.0
-        else:
-            return 60.0
+    # 3. Related technical / STEM crossover affinity
+    stem_keywords = ["engineering", "computing", "aviation", "marine", "chemical", "science", "technology"]
+    if any(k in pathway for k in stem_keywords) and any(k in user_text for k in stem_keywords):
+        return 75.0
 
-    return 70.0
+    return 58.0
 
 
 def calculate_program_recommendations(
@@ -208,10 +220,7 @@ def calculate_program_recommendations(
         interest_score = evaluate_interest_match(interests, prog)
 
         # 3. Cognitive & Strengths score (Weight: 30%)
-        # Add slight domain affinity
-        is_computer = "computer" in prog_id.lower()
-        has_tech_interest = any("comput" in i.lower() or "tech" in i.lower() for i in interests)
-        if is_computer and has_tech_interest:
+        if interest_score >= 90:
             adjusted_assessment = min(100.0, assessment_score + 5.0)
         else:
             adjusted_assessment = assessment_score
@@ -242,10 +251,7 @@ def calculate_program_recommendations(
         else:
             fit_reasons.extend(acad_eval["reasons"])
 
-        if is_computer:
-            fit_reasons.append("Demonstrated solid performance in algorithmic logic & problem-solving dimensions.")
-        else:
-            fit_reasons.append("Demonstrated analytical deduction and collaborative leadership strengths.")
+        fit_reasons.append(f"Assessment metrics show strong aptitude for {prog.get('specialisation', 'this field')}.")
 
         recommendations.append({
             "program_id": prog_id,
