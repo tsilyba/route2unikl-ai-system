@@ -8,7 +8,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import Layout from './components/Layout';
 import AllPrograms from './pages/user/AllPrograms';
 import Profile from './pages/user/Profile';
-import Dashboard from './pages/user/dashboard';
+import Dashboard from './pages/user/Dashboard';
 import LandingPage from './pages/LandingPage';
 import UploadResults from './pages/user/UploadResults';
 import ManualGradeEntry from './pages/user/ManualGradeEntry';
@@ -17,6 +17,8 @@ import ProfileIngestion from './pages/user/ProfileIngestion';
 import Recommendation from './pages/user/Recommendation';
 import PreparationPlan from './pages/user/PreparationPlan';
 import Stepper from './components/Stepper';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import { seedFoundationPrograms } from './assets/seedProgram';
 
 function App() {
@@ -49,6 +51,16 @@ function App() {
         <Route path="/ai-assessment" element={<DummyAIAssessment />} />
         <Route path="/recommendation" element={<Recommendation />} />
         <Route path="/preparation-plan" element={<PreparationPlan />} />
+
+        {/* Admin Routes — require the Firebase custom claim `admin: true` */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedAdminRoute>
+              <AdminDashboard />
+            </ProtectedAdminRoute>
+          }
+        />
 
         {/* Catch-all for undefined routes */}
         

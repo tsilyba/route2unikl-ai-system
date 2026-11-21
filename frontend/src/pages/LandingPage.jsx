@@ -2,18 +2,29 @@ import React, { useEffect } from 'react'; // Added useEffect
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { hasAdminClaim, ADMIN_HOME, STUDENT_HOME } from '../utils/adminClaims';
 
 const LandingPage = () => {
   const navigate = useNavigate();
 
-  // 1. AUTO-REDIRECT LOGGED-IN USERS
+  // 1. AUTO-REDIRECT LOGGED-IN USERS (admins -> admin area, students -> dashboard)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        navigate('/dashboard');
+    let active = true;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+      try {
+        // Force-refresh: a cached token can be up to 1 hour old and may predate
+        // the admin claim being granted, which would misroute an admin.
+        const isAdmin = await hasAdminClaim(user, { forceRefresh: true });
+        if (active) navigate(isAdmin ? ADMIN_HOME : STUDENT_HOME);
+      } catch {
+        // Claims unreadable: stay on the landing page rather than guess a role.
       }
     });
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [navigate]);
 
   return (
