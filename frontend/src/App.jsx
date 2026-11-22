@@ -19,19 +19,10 @@ import PreparationPlan from './pages/user/PreparationPlan';
 import Stepper from './components/Stepper';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import { seedFoundationPrograms } from './assets/seedProgram';
 
 function App() {
   return (
     <BrowserRouter>
-      {/* Dev Seeding Button */}
-      <button 
-        onClick={seedFoundationPrograms} 
-        className="fixed bottom-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-2xl transition-all cursor-pointer flex items-center gap-1.5"
-      >
-        <span>🌱</span> Seed Programs to Firestore
-      </button>
-
       <Layout>
        <Routes>
         <Route path="/" element={<LandingPage />} />
