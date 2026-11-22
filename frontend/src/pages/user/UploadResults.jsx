@@ -1,31 +1,48 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// frontend/src/pages/user/UploadResults.jsx
+//
+// SPM results entry for SPM leavers (route: /upload-results).
+//
+// Automatic extraction of grades from a result-slip image is TEMPORARILY DISABLED
+// (M1.5C deferred). The previous implementation called the Gemini API directly from
+// the browser with an API key bundled into the frontend, which exposed the key; it has
+// been removed and remains available in Git history (this file as of commit 3c48bec).
+// Planned replacement: React -> authenticated FastAPI endpoint -> Gemini API, enabled
+// only after a provider-terms and privacy review (see docs/PROJECT_STATUS.md).
+// Until then students type their subjects and grades, and the results are saved with
+// the manual-entry values accepted by firestore.rules.
+import { useState, useEffect } from 'react';
 import { db, auth } from '../../firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import Stepper from '../../components/Stepper';
+import { createBaseRows, MAX_SUBJECTS, validateGradeRows } from '../../utils/gradeEntry';
 
-const MIN_REQUIREMENTS = [
-  { subject: 'BAHASA MELAYU', grade: '' },
-  { subject: 'BAHASA INGGERIS', grade: '' },
-  { subject: 'MATEMATIK', grade: '' },
-  { subject: 'SEJARAH', grade: '' }
-];
-
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// Full-page message used instead of an endless loading screen.
+const StatusCard = ({ title, text, buttonLabel, onAction }) => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-md border border-gray-100 text-center" role="alert">
+      <h2 className="text-2xl font-bold mb-3 text-blue-600">{title}</h2>
+      <p className="text-gray-600 text-sm mb-6">{text}</p>
+      <button
+        type="button"
+        onClick={onAction}
+        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300 cursor-pointer"
+      >
+        {buttonLabel}
+      </button>
+    </div>
+  </div>
+);
 
 const UploadResults = () => {
+  // 'loading' | 'ready' | 'missing-profile' | 'error'
+  const [pageState, setPageState] = useState('loading');
+  const [gradeRows, setGradeRows] = useState(createBaseRows);
 
-  const [file, setFile] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedResults, setExtractedResults] = useState([...MIN_REQUIREMENTS]);
-  const [pageLoading, setPageLoading] = useState(true); // Added a loading state for the role check
-  
-  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // 1. UPDATED ROLE CHECK LOGIC
+  // Page access check (UX only; Firestore rules protect the data).
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -35,193 +52,61 @@ const UploadResults = () => {
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-
-          if (userData.role !== 'spm_leaver') {
-            alert("Access Denied: This OCR upload page is strictly for SPM Leavers.");
-            navigate('/dashboard'); 
-          } else {
-            setPageLoading(false); 
-          }
+        if (!userDoc.exists()) {
+          setPageState('missing-profile');
+          return;
         }
+
+        if (userDoc.data().role !== 'spm_leaver') {
+          alert("Access Denied: This results page is strictly for SPM Leavers.");
+          navigate('/dashboard');
+          return;
+        }
+
+        setPageState('ready');
       } catch (error) {
-        console.error("Role verification failed:", error);
+        console.error("Profile check failed:", error?.code || error);
+        setPageState('error');
       }
     });
 
     return () => unsubscribe();
   }, [navigate]);
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setExtractedResults([...MIN_REQUIREMENTS]);
-    }
-  };
-
-  const fileToGenerativePart = async (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve({
-          inlineData: {
-            data: reader.result.split(',')[1],
-            mimeType: file.type
-          },
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const CANDIDATE_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-flash-latest",
-    "gemini-3.8-flash"
-  ];
-
-  const handleExtractWithAI = async () => {
-    if (!file) return;
-    setIsProcessing(true);
-
-    const prompt = `
-      You are an expert academic transcript parser for Malaysian SPM results.
-
-      1. Scan the image for ALL subjects and their letter grades.
-      2. Subject Separation (CRITICAL):
-         - "MATHEMATICS" / "MATEMATIK" must be output as "MATEMATIK".
-         - "ADDITIONAL MATHEMATICS" / "MATEMATIK TAMBAHAN" must be output as "MATEMATIK TAMBAHAN".
-         - Do NOT confuse them. They are two distinct subjects with separate grades.
-      3. Language Normalization: Convert all subject names to standardized uppercase Bahasa Melayu:
-         - "ENGLISH" / "BAHASA INGGERIS (CEFR)" -> "BAHASA INGGERIS"
-         - "MALAY" / "BAHASA MALAYSIA" -> "BAHASA MELAYU"
-         - "PHYSICS" -> "FIZIK"
-         - "CHEMISTRY" -> "KIMIA"
-         - "BIOLOGY" -> "BIOLOGI"
-      4. Grade Format: Extract ONLY the grade letters (A+, A, A-, B+, B, C+, C, D, E, G). Strip out words like "(CEMERLANG)" or "(KEPUJIAN)".
-      
-      Return strictly a JSON array: [{"subject": "...", "grade": "..."}]
-    `;
-
-    try {
-      const imagePart = await fileToGenerativePart(file);
-      let success = false;
-      let lastError = null;
-
-      // Try candidate models sequentially if a model experiences 503 high demand
-      for (const modelName of CANDIDATE_MODELS) {
-        try {
-          console.log(`Extracting SPM results with model: ${modelName}...`);
-          const model = genAI.getGenerativeModel({ model: modelName });
-          
-          const result = await model.generateContent({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: prompt }, imagePart],
-              },
-            ],
-            generationConfig: { responseMimeType: "application/json" },
-          });
-
-          const responseText = result.response.text();
-          const parsedJson = JSON.parse(responseText);
-
-          if (Array.isArray(parsedJson) && parsedJson.length > 0) {
-            mergeResultsWithUI(parsedJson);
-            success = true;
-            console.log(`✓ SPM extraction completed successfully via ${modelName}!`);
-            break;
-          }
-        } catch (modelErr) {
-          console.warn(`Model ${modelName} encountered an issue:`, modelErr);
-          lastError = modelErr;
-          
-          // If 503 (high demand) or 429 (rate limit), continue to the next fallback model
-          const errMsg = modelErr?.message || "";
-          if (errMsg.includes("503") || errMsg.includes("high demand") || errMsg.includes("429")) {
-            console.log(`Switching from ${modelName} to backup model due to high demand...`);
-            continue;
-          }
-        }
-      }
-
-      if (!success) {
-        throw lastError || new Error("Failed to extract results across all available models.");
-      }
-
-    } catch (error) {
-      console.error("AI Extractor Error:", error);
-      const is503 = error?.message?.includes("503") || error?.message?.includes("high demand");
-      if (is503) {
-        alert("Google Gemini servers are currently experiencing high traffic. Please retry in a moment.");
-      } else {
-        alert("Extraction failed. Please verify that your result slip image is clear and your API key is active.");
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const mergeResultsWithUI = (aiData) => {
-    let currentResults = [...MIN_REQUIREMENTS];
-
-    aiData.forEach((aiItem) => {
-      const subject = (aiItem.subject || '').toUpperCase().trim();
-      const grade = (aiItem.grade || '').toUpperCase().trim();
-
-      const existingIndex = currentResults.findIndex(
-        r => r.subject === subject || subject.includes(r.subject) || r.subject.includes(subject)
-      );
-
-      if (existingIndex !== -1) {
-        currentResults[existingIndex].grade = grade;
-      } else if (subject !== "") {
-        currentResults.push({ subject, grade });
-      }
-    });
-
-    setExtractedResults(currentResults);
-  };
+  const canAddRow = gradeRows.length < MAX_SUBJECTS;
 
   const handleEditChange = (index, field, value) => {
-    const newResults = [...extractedResults];
-    newResults[index][field] = value;
-    setExtractedResults(newResults);
+    setGradeRows((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
 
   const addEmptyRow = () => {
-    setExtractedResults([...extractedResults, { subject: '', grade: '' }]);
+    if (!canAddRow) return;
+    setGradeRows((rows) => [...rows, { subject: '', grade: '' }]);
   };
 
-  // 2. UPDATED DATABASE SAVING LOGIC
   const handleConfirm = async () => {
-    const mandatoryMissing = extractedResults.slice(0, 4).some(r => r.grade.trim() === '');
-    if (mandatoryMissing) {
-      alert("Please ensure BM, BI, Math, and Sejarah have grades.");
+    const { error: validationError, results: cleanedResults } = validateGradeRows(gradeRows);
+    if (validationError) {
+      alert(validationError);
       return;
     }
-
-    const cleanedResults = extractedResults.filter(r => r.subject.trim() !== '' && r.grade.trim() !== '');
 
     try {
       const user = auth.currentUser;
       if (user) {
-        // Changed collection name to the generic 'results'
         const resultDocRef = doc(db, "results", user.uid);
 
+        // Manual-entry values accepted by firestore.rules: the grades are typed by
+        // the student and are not independently verified. (The rules have no
+        // separate label for an SPM leaver's actual results; see docs/PROJECT_STATUS.md.)
         const dataToSave = {
           userId: user.uid,
           email: user.email,
-          results: cleanedResults, 
+          results: cleanedResults,
           updatedAt: new Date(),
-          status: "verified",
-          recordType: "OFFICIAL_SPM_CERT", 
-          verificationMethod: "AI_OCR_GEMINI" 
+          status: "manual_entry",
+          recordType: "PREDICTED_GRADES",
+          verificationMethod: "MANUAL_ENTRY"
         };
 
         await setDoc(resultDocRef, dataToSave);
@@ -229,64 +114,65 @@ const UploadResults = () => {
         const userProfileRef = doc(db, "users", user.uid);
         await updateDoc(userProfileRef, { hasUploadedResults: true });
 
-        alert("Results securely verified and saved to database!");
+        alert("Your grades have been saved as you entered them. They have not been independently verified.");
         navigate('/ai-assessment');
       }
     } catch (error) {
-      console.error("Firestore Save Error:", error);
-      alert("Failed to save. Check your Firestore Rules.");
+      console.error("Saving results failed:", error?.code || error);
+      alert("We couldn't save your results. Please check your entries and try again.");
     }
   };
 
+  if (pageState === 'missing-profile') {
+    return (
+      <StatusCard
+        title="Student profile not found"
+        text="We couldn't find your student profile, so your results can't be saved yet. Please return to the dashboard, or sign in again if the problem continues."
+        buttonLabel="Back to Dashboard"
+        onAction={() => navigate('/dashboard')}
+      />
+    );
+  }
+
+  if (pageState === 'error') {
+    return (
+      <StatusCard
+        title="Couldn't load your profile"
+        text="We couldn't check your student profile right now. Please check your connection and try again."
+        buttonLabel="Try again"
+        onAction={() => window.location.reload()}
+      />
+    );
+  }
+
   // Prevent UI flashing while checking the user's role
-  if (pageLoading) {
-    return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Verifying Security Credentials...</div>;
+  if (pageState === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Loading your profile...</div>;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-lg p-8">
-        
+
       <Stepper currentStep={2}/>
 
 
-        <h2 className="text-2xl font-bold text-gray-800 mb-8">Upload your SPM result.</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-8">Enter your SPM results.</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="border-2 border-dashed border-blue-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-blue-50/30">
-            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl mb-4">📂</div>
-            <p className="text-gray-600 font-semibold mb-4">Upload Here</p>
-
-            <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-            <button 
-              onClick={() => fileInputRef.current.click()}
-              className="px-6 py-2 bg-white border border-blue-200 text-blue-600 font-bold rounded-xl shadow-sm hover:bg-blue-50 transition"
-            >
-              Select Result Slip Image
-            </button>
-
-            {file && (
-              <div className="mt-6 w-full">
-                <p className="text-xs text-gray-400 mb-2 truncate">File ready: {file.name}</p>
-                <button 
-                  onClick={handleExtractWithAI}
-                  disabled={isProcessing}
-                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:bg-gray-300 transition flex justify-center items-center gap-2 shadow-lg"
-                >
-                  {isProcessing ? (
-                    <>
-                      <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                      Loading...
-                    </>
-                  ) : "Analyze Slip"}
-                </button>
-              </div>
-            )}
+          <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-gray-50 text-center" role="status">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-3xl mb-4" aria-hidden="true">📂</div>
+            <p className="text-gray-700 font-bold mb-2">Automatic slip reading is temporarily unavailable</p>
+            <p className="text-sm text-gray-500">
+              Reading grades from a photo of your result slip is switched off for now.
+              Please type your subjects and grades in the form instead. Your results will be
+              saved exactly as you enter them.
+            </p>
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200 flex flex-col">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Results Preview</h3>
-            <p className="text-sm text-gray-500 mb-6">Verify the subject and grades extracted before saving.</p>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Your SPM Results</h3>
+            <p className="text-sm text-gray-500 mb-6">Enter each subject and grade from your result slip, then save.</p>
 
             <div className="flex-1 overflow-y-auto space-y-3 max-h-[400px] pr-2">
               <div className="flex gap-3 px-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -294,21 +180,21 @@ const UploadResults = () => {
                 <div className="w-16 text-center">Gred</div>
               </div>
 
-             {extractedResults.map((item, idx) => (
+             {gradeRows.map((item, idx) => (
                 <div key={idx} className="flex gap-2 p-2 bg-white rounded-xl border shadow-sm">
-                  <input 
-                    type="text" 
-                    value={item.subject} 
-                    placeholder="Mata Pelajaran" 
-                    readOnly={idx < 4} 
+                  <input
+                    type="text"
+                    value={item.subject}
+                    placeholder="Mata Pelajaran"
+                    readOnly={idx < 4}
                     onChange={(e) => handleEditChange(idx, 'subject', e.target.value.toUpperCase())}
                     className={`flex-1 p-2 border rounded-lg font-bold text-sm ${idx < 4 ? 'bg-gray-50/50' : 'bg-white'}`}
                   />
 
-                  <input 
-                    type="text" 
-                    value={item.grade} 
-                    placeholder="Gred" 
+                  <input
+                    type="text"
+                    value={item.grade}
+                    placeholder="Gred"
                     maxLength={2}
                     onChange={(e) => handleEditChange(idx, 'grade', e.target.value.toUpperCase())}
                     className="w-16 p-2 border rounded-lg text-center font-black text-blue-600 focus:ring-2 focus:ring-blue-400"
@@ -317,7 +203,16 @@ const UploadResults = () => {
               ))}
             </div>
 
-            <button onClick={addEmptyRow} className="mt-3 text-xs font-bold text-blue-600 hover:underline text-left pl-2">+ Add Missing Elective</button>
+            <button
+              onClick={addEmptyRow}
+              disabled={!canAddRow}
+              className="mt-3 text-xs font-bold text-blue-600 hover:underline text-left pl-2 disabled:text-gray-400 disabled:no-underline disabled:cursor-not-allowed"
+            >
+              + Add Missing Elective
+            </button>
+            {!canAddRow && (
+              <p className="mt-1 text-xs text-gray-500 pl-2">You can enter up to {MAX_SUBJECTS} subjects.</p>
+            )}
 
             <button onClick={handleConfirm} className="mt-6 w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition">Confirm & Save</button>
           </div>

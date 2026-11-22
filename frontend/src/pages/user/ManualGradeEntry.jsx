@@ -1,20 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db, auth } from '../../firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import Stepper from '../../components/Stepper';
+import { createBaseRows, MAX_SUBJECTS, validateGradeRows } from '../../utils/gradeEntry';
 
-const MIN_REQUIREMENTS = [
-  { subject: 'BAHASA MELAYU', grade: '' },
-  { subject: 'BAHASA INGGERIS', grade: '' },
-  { subject: 'MATEMATIK', grade: '' },
-  { subject: 'SEJARAH', grade: '' }
-];
+// Full-page message used instead of an endless loading screen.
+const StatusCard = ({ title, text, buttonLabel, onAction }) => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-md border border-gray-100 text-center" role="alert">
+      <h2 className="text-2xl font-bold mb-3 text-blue-600">{title}</h2>
+      <p className="text-gray-600 text-sm mb-6">{text}</p>
+      <button
+        type="button"
+        onClick={onAction}
+        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300 cursor-pointer"
+      >
+        {buttonLabel}
+      </button>
+    </div>
+  </div>
+);
 
 const ManualGradeEntry = () => {
-  const [grades, setGrades] = useState([...MIN_REQUIREMENTS]);
-  const [loading, setLoading] = useState(true);
+  const [grades, setGrades] = useState(createBaseRows);
+  // 'loading' | 'ready' | 'missing-profile' | 'error'
+  const [pageState, setPageState] = useState('loading');
   const navigate = useNavigate();
 
   // 1. STRICT ROLE VERIFICATION
@@ -27,44 +39,46 @@ const ManualGradeEntry = () => {
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-          if (userData.role !== 'form_4_5') {
-            alert("Access Denied: This manual entry page is strictly for Form 4 and Form 5 students.");
-            navigate('/dashboard'); 
-          } else {
-            setLoading(false); 
-          }
+        if (!userDoc.exists()) {
+          setPageState('missing-profile');
+          return;
         }
+
+        if (userDoc.data().role !== 'form_4_5') {
+          alert("Access Denied: This manual entry page is strictly for Form 4 and Form 5 students.");
+          navigate('/dashboard');
+          return;
+        }
+
+        setPageState('ready');
       } catch (error) {
-        console.error("Role verification failed:", error);
+        console.error("Profile check failed:", error?.code || error);
+        setPageState('error');
       }
     });
 
     return () => unsubscribe();
   }, [navigate]);
 
+  const canAddRow = grades.length < MAX_SUBJECTS;
+
   const handleEditChange = (index, field, value) => {
-    const newGrades = [...grades];
     // Automatically convert grades and subjects to uppercase for clean database entry
-    newGrades[index][field] = value.toUpperCase();
-    setGrades(newGrades);
+    setGrades((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value.toUpperCase() } : row)));
   };
 
   const addEmptyRow = () => {
-    setGrades([...grades, { subject: '', grade: '' }]);
+    if (!canAddRow) return;
+    setGrades((rows) => [...rows, { subject: '', grade: '' }]);
   };
 
   // 2. UNIFIED DATABASE SAVING LOGIC
   const handleSaveAndProceed = async () => {
-    const mandatoryMissing = grades.slice(0, 4).some(r => r.grade.trim() === '');
-    if (mandatoryMissing) {
-      alert("Please ensure BM, BI, Math, and Sejarah have grades.");
+    const { error: validationError, results: cleanedResults } = validateGradeRows(grades);
+    if (validationError) {
+      alert(validationError);
       return;
     }
-
-    const cleanedResults = grades.filter(r => r.subject.trim() !== '' && r.grade.trim() !== '');
 
     try {
       const user = auth.currentUser;
@@ -85,18 +99,40 @@ const ManualGradeEntry = () => {
         // Update step tracking
         await updateDoc(doc(db, "users", user.uid), { hasUploadedResults: true });
 
-        alert(" Grades securely saved! Proceeding to the AI Assessment.");
+        alert("Your grades have been saved as you entered them. They have not been independently verified.");
         navigate('/ai-assessment'); // Routing straight to the cloud AI page
       }
     } catch (error) {
-      console.error("Error saving manual grades:", error);
-      alert("Failed to save to Firestore. Check your database rules.");
+      console.error("Saving grades failed:", error?.code || error);
+      alert("We couldn't save your grades. Please check your entries and try again.");
     }
   };
 
+  if (pageState === 'missing-profile') {
+    return (
+      <StatusCard
+        title="Student profile not found"
+        text="We couldn't find your student profile, so your grades can't be saved yet. Please return to the dashboard, or sign in again if the problem continues."
+        buttonLabel="Back to Dashboard"
+        onAction={() => navigate('/dashboard')}
+      />
+    );
+  }
+
+  if (pageState === 'error') {
+    return (
+      <StatusCard
+        title="Couldn't load your profile"
+        text="We couldn't check your student profile right now. Please check your connection and try again."
+        buttonLabel="Try again"
+        onAction={() => window.location.reload()}
+      />
+    );
+  }
+
   // Prevent UI flashing while checking the user's role
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Verifying Security Credentials...</div>;
+  if (pageState === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Loading your profile...</div>;
   }
 
   return (
@@ -142,9 +178,16 @@ const ManualGradeEntry = () => {
           ))}
         </div>
 
-        <button onClick={addEmptyRow} className="mt-4 text-sm font-bold text-blue-600 hover:text-blue-800 transition">
+        <button
+          onClick={addEmptyRow}
+          disabled={!canAddRow}
+          className="mt-4 text-sm font-bold text-blue-600 hover:text-blue-800 transition disabled:text-gray-400 disabled:cursor-not-allowed"
+        >
           + Add Elective Subject
         </button>
+        {!canAddRow && (
+          <p className="mt-1 text-xs text-gray-500">You can enter up to {MAX_SUBJECTS} subjects.</p>
+        )}
 
         <div className="mt-10 pt-6 border-t">
           <button 
