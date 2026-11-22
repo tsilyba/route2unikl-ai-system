@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 23 November 2026 (MYT): browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 23 November 2026 (MYT): M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -17,7 +17,7 @@ Every status claim in this document uses one of these labels.
 |---|---|
 | **Repo-verified** | Implementation confirmed by reading the source code in this repository. |
 | **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/test_auth.py`. |
-| **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/utils/gradeEntry.test.js` (synthetic data; no browser or Firebase). |
+| **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/**/*.test.js` (run with `node --test "src/**/*.test.js"` in `frontend/`; synthetic data, no browser, Firebase or network). |
 | **Emulator tests** | Covered by the Firestore rules suite in `firestore-tests/` (local emulator, `demo-route2unikl`). |
 | **Browser smoke test** | Exercised manually in the real app: local React dev server connected to production Firebase. Owner-reported. |
 | **Console** | Checked in the Firebase Console. Owner-reported. |
@@ -51,15 +51,17 @@ Every status claim in this document uses one of these labels.
 |---|---|---|
 | Admin route guard for `/admin/dashboard` (browser claim check with forced token refresh) | `frontend/src/components/ProtectedAdminRoute.jsx`, `frontend/src/utils/adminClaims.js` | Repo-verified; Browser smoke test (Admin login, dashboard access, refresh) |
 | Login / landing redirect by claim | `frontend/src/pages/auth/Login.jsx`, `frontend/src/pages/LandingPage.jsx` | Repo-verified; Browser smoke test |
-| Admin dashboard | `frontend/src/pages/admin/AdminDashboard.jsx` | Placeholder page only |
+| Server confirmation of Admin access before any admin content is shown (`GET /api/admin/verify`: 401 → sign out and go to login; 403 or no explicit `is_admin: true` → denied; auth outage or unreachable server → blocked with Retry; stale results ignored) | `frontend/src/components/admin/AdminLayout.jsx`, `frontend/src/utils/adminVerification.js` | Repo-verified; Frontend unit tests (classification); Unit tests (endpoint) |
+| Admin layout and dashboard (M2): separate admin layout without the student Header/Footer, fixed desktop sidebar, mobile slide-in navigation (overlay, Escape, focus handling), logout; dashboard with welcome, module overview (M3–M7 disabled, "Coming soon") and access status; no statistics; unknown `/admin/*` paths show an admin "Page not found" | `frontend/src/components/admin/`, `frontend/src/pages/admin/AdminDashboard.jsx`, `frontend/src/App.jsx` | Repo-verified; Frontend unit tests (navigation configuration) |
 | FastAPI token verification, `require_admin`, `ensure_same_user`, coded HTTP 503 | `backend/core/auth.py` | Repo-verified; Unit tests |
-| `GET /api/auth/me`, `GET /api/admin/verify` | `backend/routes/auth_check.py` | Unit tests; not yet called by the frontend |
+| `GET /api/auth/me`, `GET /api/admin/verify` | `backend/routes/auth_check.py` | Unit tests; `/api/admin/verify` is called by `AdminLayout` (M2); `/api/auth/me` is not used by the frontend |
 | Frontend `authFetch` and auth error panel | `frontend/src/utils/apiClient.js`, `frontend/src/components/ApiAuthErrorPanel.jsx` | Repo-verified |
 | Firestore Security Rules | [`firestore.rules`](../firestore.rules) | Emulator tests; deployed to production (owner-reported) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
-Apart from the shared grade-validation helper, no automated tests exist for the frontend UI,
-recommendation scoring, RAG retrieval quality, AI output quality or OCR accuracy.
+Apart from the shared grade-validation helper and the Admin navigation and verification logic, no
+automated tests exist for the frontend UI, recommendation scoring, RAG retrieval quality, AI output
+quality or OCR accuracy.
 
 ## 2. Milestone history
 
@@ -70,7 +72,8 @@ recommendation scoring, RAG retrieval quality, AI output quality or OCR accuracy
 | M1.5A — FastAPI Authentication & Authorization | `fff01be` | 22 Nov 2026 | 10 | Firebase ID-token verification on all assessment routes, `require_admin`, ownership checks, generic errors, `authFetch`, 26 unit tests |
 | M1.5B — Firestore Rules & Seed Button Removal | `2287868` | 22 Nov 2026 | 8 | `firestore.rules`, `firebase.json`, 44 emulator tests, browser seeding removed |
 | Documentation baseline | `3c48bec` | 22 Nov 2026 | 3 | `CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/FIRESTORE_BASELINE.md` |
-| M1.5C — Secure Gemini Integration | **Deferred**; security patch only (commit after `3c48bec`) | 23 Nov 2026 | 6 | Browser-side Gemini OCR removed from `UploadResults.jsx` (no SDK, no key reference, no upload/Analyze controls); manual entry kept; shared grade validation for the SPM leaver and Form 4/5 pages (`gradeEntry.js`, 18 frontend unit tests); B2–B4 fixed on both pages; `CLAUDE.md` updated (no provider secrets in `VITE_*` variables). The server-side Gemini integration was **not** implemented. |
+| M1.5C — Secure Gemini Integration | **Deferred**; security patch only (`35e75d6`) | 23 Nov 2026 | 6 | Browser-side Gemini OCR removed from `UploadResults.jsx` (no SDK, no key reference, no upload/Analyze controls); manual entry kept; shared grade validation for the SPM leaver and Form 4/5 pages (`gradeEntry.js`, 18 frontend unit tests); B2–B4 fixed on both pages; `CLAUDE.md` updated (no provider secrets in `VITE_*` variables). The server-side Gemini integration was **not** implemented. |
+| M2 — Admin Dashboard & Sidebar | commit after `35e75d6` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -80,6 +83,8 @@ Recorded test results (not re-run for this documentation baseline):
   confirming that the test detects the defect.
 - **M1.5C security patch:** `node --test src/utils/gradeEntry.test.js` in `frontend/` — 18 tests passed;
   backend tests — 26 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged).
+- **M2:** `node --test "src/**/*.test.js"` in `frontend/` — 40 tests passed (22 new Admin tests and the
+  18 grade-validation tests); backend tests — 26 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged).
 
 ## 3. Repository status at baseline
 
@@ -119,7 +124,7 @@ Production smoke tests were run from the local React dev server connected to pro
 | S3 | Self-asserted assessment. `ai_assessments` is written by the browser, and `/api/assessment/recommend` derives the score from stored `answers[].isCorrect`. | `DummyAI.jsx`, `recommend_endpoint` in `backend/routes/assessment.py` | Medium | Future |
 | S4 | Incomplete account deletion. Profile deletes `users/{uid}`, then the Auth user; `results/{uid}` and `ai_assessments/{uid}` remain (owners cannot delete them under the rules). | `Profile.jsx`, `firestore.rules` | Medium | M3 (protected FastAPI deletion endpoint) |
 | S5 | Accepted limitation W1: a student can delete and re-create their own `users` document, changing the student type and resetting `createdAt`. It can never grant Admin. | `firestore.rules` comment, emulator suite 12 | Low | M3 |
-| S6 | The Admin route checks the claim in the browser only and does not call `/api/admin/verify`. Acceptable while the dashboard is a placeholder; any Admin data must come from `require_admin` endpoints. | `ProtectedAdminRoute.jsx` | Low today | M2 |
+| S6 | **Resolved in M2:** the Admin area previously checked the claim in the browser only. `AdminLayout` now calls `GET /api/admin/verify` and shows no admin content unless the server confirms access. Frontend checks still only control what is displayed; Admin data must come from `require_admin` endpoints (M3+). | `ProtectedAdminRoute.jsx`, `frontend/src/components/admin/AdminLayout.jsx` | Resolved | — |
 | S7 | FastAPI interactive docs (`/docs`, `/openapi.json`) are public by default. | `backend/main.py` | Low | Before backend deployment |
 | S8 | No Firebase App Check. | `frontend/src/firebase.js` | Low–Medium | Later |
 | S9 | `scripts/uploadPrograms.js` hard-codes an absolute local path to an Admin SDK key file outside the repository and a placeholder `databaseURL`. The key itself is not committed; the path and filename are in Git history. | `scripts/uploadPrograms.js` | Low | Clean up in M4 |
@@ -201,7 +206,7 @@ Programme data exists in three places, read by different parts of the system:
 | Order | Milestone | Scope | Prerequisites and notes |
 |---|---|---|---|
 | — | **M1.5C — Secure Gemini Integration (DEFERRED)** | Security patch done: browser-side Gemini OCR disabled. Remaining: React → authenticated FastAPI → Gemini API. | Not completed. Activation requires a provider-terms and privacy review (users under 18, personal data on SPM slips), rotation or revocation of the old key, and owner approval. Required before OCR returns and before any public deployment. |
-| 1 | M2 — Admin Dashboard and Sidebar | Admin layout, sidebar and logout; confirm Admin access with `/api/admin/verify`. | Clearly labelled placeholders; no invented statistics. |
+| 1 | M2 — Admin Dashboard and Sidebar | **Implemented.** Admin layout, sidebar, mobile navigation and logout; Admin access confirmed with `/api/admin/verify`. | Module cards are labelled "Coming soon"; no statistics. |
 | 2 | M3 — Manage Users | `require_admin` FastAPI endpoints using the Admin SDK. | Include protected account deletion that also removes `results` and `ai_assessments` (resolves S4, W1). |
 | 3 | M4 — Manage Programmes | Admin CRUD for programmes. | Decide the programme single source of truth and sync strategy first; guard the seeders. |
 | 4 | M5 — Manage Programme Criteria | Eligibility fields (`min_spm_credits`, `min_math_grade`, `min_bm_grade`, `min_bi_grade`, `requires_science`). | Consumed by `recommendation_service.py`. |
@@ -213,9 +218,12 @@ additional browser access to Firestore.
 
 ## 7. Recommended next milestone
 
-**M2 — Admin Dashboard and Sidebar.** The owner deferred M1.5C after the browser-side Gemini OCR
-was disabled in a security patch. OCR is not operational; manual results entry remains supported.
-Before OCR returns or any public deployment: rotate or revoke the previously exposed key(s), remove
-the unused `VITE_OLLAMA_URL` from `frontend/.env`, resolve the Ollama base-URL discrepancy, complete the
+**M3 — Manage Users.** Add `require_admin` FastAPI endpoints (Admin SDK) for viewing and managing
+accounts, including a protected account-deletion process that also removes `results` and
+`ai_assessments` (resolves S4 and W1). Enable the module by setting `available: true` and a path for it in
+`frontend/src/components/admin/adminNavigation.js` and adding its route in `frontend/src/App.jsx`.
+M1.5C remains deferred: OCR is not operational and manual results entry remains supported. Before OCR
+returns or any public deployment: rotate or revoke the previously exposed key(s), remove the unused
+`VITE_OLLAMA_URL` from `frontend/.env`, resolve the Ollama base-URL discrepancy, complete the
 provider-terms and privacy review (S1, S10, S11), and implement M1.5C.
-Start M2 only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE.md](../CLAUDE.md).
+Start M3 only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE.md](../CLAUDE.md).

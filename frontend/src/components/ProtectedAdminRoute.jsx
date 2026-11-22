@@ -77,7 +77,11 @@ const ProtectedAdminRoute = ({ children }) => {
 
   if (status === 'checking') {
     return (
-      <div className="p-20 text-center font-bold text-blue-600 text-xl" role="status" aria-live="polite">
+      <div
+        className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-center text-xl font-bold text-blue-600"
+        role="status"
+        aria-live="polite"
+      >
         Verifying admin access...
       </div>
     );
@@ -93,8 +97,8 @@ const ProtectedAdminRoute = ({ children }) => {
 
   if (status === 'error') {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] px-4">
-        <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-md border border-gray-100 text-center">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 px-4">
+        <div className="p-8 bg-white rounded-xl shadow-lg w-full max-w-md border border-gray-100 text-center" role="alert">
           <h2 className="text-2xl font-bold mb-3 text-blue-600">Unable to verify access</h2>
           <p className="text-gray-600 text-sm mb-6">
             We couldn't confirm your admin permissions. Please check your internet connection and try again.

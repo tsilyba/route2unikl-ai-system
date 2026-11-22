@@ -45,6 +45,7 @@ An Admin module is being built one milestone at a time on `feature/admin-module`
 | Task | Directory | Command |
 |---|---|---|
 | Frontend dev server / lint / build | `frontend/` | `npm run dev` · `npm run lint` · `npm run build` |
+| Frontend unit tests (Node test runner; no browser, Firebase or network) | `frontend/` | `node --test "src/**/*.test.js"` |
 | Backend server (frontend expects port 8000) | `backend/` (venv active) | `uvicorn main:app --reload --port 8000` |
 | Backend tests (mocked: no network, AI or ChromaDB) | `backend/` | `python -m unittest discover -s tests -t . -v` |
 | Firestore rules tests (local emulator, `demo-route2unikl`) | `firestore-tests/` | `npm test` |
