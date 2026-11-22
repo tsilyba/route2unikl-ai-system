@@ -4,10 +4,13 @@ import { db, auth } from '../../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import Stepper from '../../components/Stepper';
+import ApiAuthErrorPanel from '../../components/ApiAuthErrorPanel';
+import { authFetch, ApiAuthError } from '../../utils/apiClient';
 import testplanData from '../../assets/unikl_foundation_testplan.json';
 
 const Recommendation = () => {
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [selectedProgramId, setSelectedProgramId] = useState(null);
   const [userData, setUserData] = useState({ interests: [], grades: [], score: 85 });
@@ -48,12 +51,11 @@ const Recommendation = () => {
 
       setUserData({ interests, grades, score: assessmentScore });
 
-      // 2. Call FastAPI Recommendation Endpoint
+      // 2. Call FastAPI Recommendation Endpoint (authenticated with the Firebase ID token)
       let recs = [];
       try {
-        const response = await fetch('http://localhost:8000/api/assessment/recommend', {
+        const response = await authFetch('/api/assessment/recommend', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: uid,
             interests: interests,
@@ -62,13 +64,21 @@ const Recommendation = () => {
           })
         });
 
-        if (response.ok) {
+        if (!response.ok) {
+          console.warn(`Recommendation API returned HTTP ${response.status}; using client-side calculation.`);
+        } else {
           const data = await response.json();
           if (data.recommendations && data.recommendations.length > 0) {
             recs = data.recommendations;
           }
         }
       } catch (backendError) {
+        // Authentication/authorization failures must be shown, never masked by client-side results.
+        if (backendError instanceof ApiAuthError) {
+          console.error(`Recommendation request rejected (HTTP ${backendError.status}): ${backendError.message}`);
+          setAuthError(backendError);
+          return; // outer `finally` clears the loading state
+        }
         console.warn('Backend recommendation service offline, using client-side calculation:', backendError);
       }
 
@@ -127,6 +137,10 @@ const Recommendation = () => {
     localStorage.setItem('selected_prep_program_id', targetId);
     navigate(`/preparation-plan?programId=${targetId}`);
   };
+
+  if (authError) {
+    return <ApiAuthErrorPanel error={authError} />;
+  }
 
   if (loading) {
     return (

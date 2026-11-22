@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.firebase import initialize_firebase
 from routes.assessment import router as assessment_router
+from routes.auth_check import router as auth_check_router
 
 app = FastAPI(
     title="Route2UniKL API",
@@ -19,6 +20,9 @@ app.add_middleware(
 
 # Mount AI Assessment RAG Router
 app.include_router(assessment_router, prefix="/api/assessment", tags=["AI Assessment"])
+
+# Mount read-only authentication / admin-authorization check endpoints
+app.include_router(auth_check_router, prefix="/api", tags=["Auth"])
 
 try:
     db = initialize_firebase()

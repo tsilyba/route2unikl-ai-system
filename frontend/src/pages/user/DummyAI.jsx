@@ -4,9 +4,12 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import Stepper from '../../components/Stepper';
+import ApiAuthErrorPanel from '../../components/ApiAuthErrorPanel';
+import { authFetch, ApiAuthError } from '../../utils/apiClient';
 
 const DummyAIAssessment = () => {
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -56,18 +59,20 @@ const DummyAIAssessment = () => {
       // Store them in state so we can attach them to the final save
       setUserData({ role, grades, interests });
 
-      // 2. Request 10 MCQ from FastAPI RAG Orchestrator (ChromaDB + Ollama Cloud)
+      // 2. Request 10 MCQ from FastAPI RAG Orchestrator (ChromaDB + cloud LLM providers)
+      //    Authenticated with the user's Firebase ID token (Authorization: Bearer).
       try {
-        const response = await fetch("http://localhost:8000/api/assessment/generate-questions", {
+        const response = await authFetch("/api/assessment/generate-questions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: uid,
             interests: interests
           })
         });
 
-        if (response.ok) {
+        if (!response.ok) {
+          console.warn(`AI assessment API returned HTTP ${response.status}; using dynamic fallback questions.`);
+        } else {
           const data = await response.json();
           console.log(
             `🤖 [AI Assessment] Model Used: ${data.model_used || 'N/A'} | Source: ${data.source} | Matched Programme: ${data.matched_program?.title}`
@@ -79,6 +84,13 @@ const DummyAIAssessment = () => {
           }
         }
       } catch (backendErr) {
+        // Authentication/authorization failures must be shown, never masked by fallback questions.
+        if (backendErr instanceof ApiAuthError) {
+          console.error(`AI assessment request rejected (HTTP ${backendErr.status}): ${backendErr.message}`);
+          setAuthError(backendErr);
+          setLoading(false);
+          return;
+        }
         console.warn("FastAPI backend not running at :8000, using dynamic fallback:", backendErr);
       }
 
@@ -222,6 +234,10 @@ const DummyAIAssessment = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (authError) {
+    return <ApiAuthErrorPanel error={authError} />;
+  }
 
   if (loading) {
     return (
