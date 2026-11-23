@@ -281,4 +281,7 @@ These were simulations in the Firebase Console, not application tests.
 - **Account lifecycle is outside the rules.** Deleting or disabling Auth accounts and cleaning up the
   associated `results` / `ai_assessments` documents must be done by a protected backend process.
 - **Rules are not filters.** `list` queries on private collections are denied entirely, so Admin
-  listings of students must come from `require_admin` FastAPI endpoints.
+  listings of students must come from `require_admin` FastAPI endpoints. Implemented read-only in M3A:
+  `GET /api/admin/users` and `GET /api/admin/users/{uid}` read Firebase Authentication and Firestore
+  through the Admin SDK with field masks, and return allow-listed fields and metadata-only record
+  summaries (no grades or answers). The rules were not changed.

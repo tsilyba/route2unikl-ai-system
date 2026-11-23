@@ -19,6 +19,8 @@ import PreparationPlan from './pages/user/PreparationPlan';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import AdminLayout, { AdminNotFound } from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminUserDetail from './pages/admin/AdminUserDetail';
 
 function App() {
   return (
@@ -61,7 +63,10 @@ function App() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
-          {/* Unfinished modules (e.g. /admin/users) have no route yet */}
+          {/* Manage Users — read-only (M3A) */}
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:uid" element={<AdminUserDetail />} />
+          {/* Unfinished modules (e.g. /admin/programmes) have no route yet */}
           <Route path="*" element={<AdminNotFound />} />
         </Route>
       </Routes>

@@ -4,11 +4,11 @@
 //   - variant="desktop": fixed 256px sidebar, visible from the lg breakpoint;
 //   - variant="mobile":  slide-in dialog with focus trap (opened from the header menu).
 // Available modules are links (aria-current marks the active page). Planned
-// modules (M3-M7) are plain, non-focusable text with a "Coming soon" label.
+// modules are plain, non-focusable text with a "Coming soon" label.
 import { useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import AdminIcon from './AdminIcons';
-import { ADMIN_NAV_ITEMS, getComingSoonLabel } from './adminNavigation';
+import { ADMIN_DASHBOARD_PATH, getComingSoonLabel, getNavSection } from './adminNavigation';
 
 const linkClasses = ({ isActive }) =>
   [
@@ -17,47 +17,55 @@ const linkClasses = ({ isActive }) =>
     isActive ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800 hover:text-white',
   ].join(' ');
 
-const NavItems = ({ onNavigate }) => {
-  const available = ADMIN_NAV_ITEMS.filter((item) => item.available);
-  const upcoming = ADMIN_NAV_ITEMS.filter((item) => !item.available);
+const NavEntry = ({ item, onNavigate }) => {
+  if (item.available) {
+    // Only the dashboard needs an exact match; other modules stay active on their detail pages.
+    return (
+      <NavLink to={item.path} end={item.path === ADMIN_DASHBOARD_PATH} className={linkClasses} onClick={onNavigate}>
+        <AdminIcon name={item.icon} />
+        <span>{item.label}</span>
+      </NavLink>
+    );
+  }
 
   return (
-    <>
-      <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Overview</p>
-      <ul className="space-y-1">
-        {available.map((item) => (
-          <li key={item.key}>
-            <NavLink to={item.path} end className={linkClasses} onClick={onNavigate}>
-              <AdminIcon name={item.icon} />
-              <span>{item.label}</span>
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-
-      <p className="mt-6 px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Management</p>
-      <ul className="space-y-1">
-        {upcoming.map((item) => (
-          <li key={item.key}>
-            <div
-              className="flex cursor-not-allowed select-none items-start gap-3 rounded-lg px-3 py-2 text-slate-500"
-              aria-disabled="true"
-              title={`${item.label} is not available yet (${item.milestone})`}
-            >
-              <AdminIcon name={item.icon} className="mt-0.5 h-5 w-5 shrink-0" />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium">{item.label}</span>
-                <span className="mt-0.5 inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
-                  {getComingSoonLabel(item)}
-                </span>
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
+    <div
+      className="flex cursor-not-allowed select-none items-start gap-3 rounded-lg px-3 py-2 text-slate-500"
+      aria-disabled="true"
+      title={`${item.label} is not available yet (${item.milestone})`}
+    >
+      <AdminIcon name={item.icon} className="mt-0.5 h-5 w-5 shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{item.label}</span>
+        <span className="mt-0.5 inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-400">
+          {getComingSoonLabel(item)}
+        </span>
+      </span>
+    </div>
   );
 };
+
+const NavItems = ({ onNavigate }) => (
+  <>
+    <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Overview</p>
+    <ul className="space-y-1">
+      {getNavSection('overview').map((item) => (
+        <li key={item.key}>
+          <NavEntry item={item} onNavigate={onNavigate} />
+        </li>
+      ))}
+    </ul>
+
+    <p className="mt-6 px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Management</p>
+    <ul className="space-y-1">
+      {getNavSection('management').map((item) => (
+        <li key={item.key}>
+          <NavEntry item={item} onNavigate={onNavigate} />
+        </li>
+      ))}
+    </ul>
+  </>
+);
 
 const Brand = () => (
   <div className="flex items-center gap-3">

@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 23 November 2026 (MYT): M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 23 November 2026 (MYT): M3A Manage Users (read-only) implemented, M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -53,15 +53,16 @@ Every status claim in this document uses one of these labels.
 | Login / landing redirect by claim | `frontend/src/pages/auth/Login.jsx`, `frontend/src/pages/LandingPage.jsx` | Repo-verified; Browser smoke test |
 | Server confirmation of Admin access before any admin content is shown (`GET /api/admin/verify`: 401 → sign out and go to login; 403 or no explicit `is_admin: true` → denied; auth outage or unreachable server → blocked with Retry; stale results ignored) | `frontend/src/components/admin/AdminLayout.jsx`, `frontend/src/utils/adminVerification.js` | Repo-verified; Frontend unit tests (classification); Unit tests (endpoint) |
 | Admin layout and dashboard (M2): separate admin layout without the student Header/Footer, fixed desktop sidebar, mobile slide-in navigation (overlay, Escape, focus handling), logout; dashboard with welcome, module overview (M3–M7 disabled, "Coming soon") and access status; no statistics; unknown `/admin/*` paths show an admin "Page not found" | `frontend/src/components/admin/`, `frontend/src/pages/admin/AdminDashboard.jsx`, `frontend/src/App.jsx` | Repo-verified; Frontend unit tests (navigation configuration) |
+| Manage Users, read-only (M3A): `GET /api/admin/users` (search by name or email; student-type, account-status and profile filters; pagination, newest first) and `GET /api/admin/users/{uid}` (account, profile, learning journey, metadata-only record summaries); admin status from custom claims; Auth accounts without a profile flagged; allow-listed fields only; no account actions | `backend/routes/admin_users.py`, `backend/services/user_admin_service.py`, `frontend/src/pages/admin/AdminUsers.jsx`, `frontend/src/pages/admin/AdminUserDetail.jsx` | Repo-verified; Unit tests (endpoints, mocked Firebase); Frontend unit tests (filters, labels, errors) |
 | FastAPI token verification, `require_admin`, `ensure_same_user`, coded HTTP 503 | `backend/core/auth.py` | Repo-verified; Unit tests |
 | `GET /api/auth/me`, `GET /api/admin/verify` | `backend/routes/auth_check.py` | Unit tests; `/api/admin/verify` is called by `AdminLayout` (M2); `/api/auth/me` is not used by the frontend |
 | Frontend `authFetch` and auth error panel | `frontend/src/utils/apiClient.js`, `frontend/src/components/ApiAuthErrorPanel.jsx` | Repo-verified |
 | Firestore Security Rules | [`firestore.rules`](../firestore.rules) | Emulator tests; deployed to production (owner-reported) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
-Apart from the shared grade-validation helper and the Admin navigation and verification logic, no
-automated tests exist for the frontend UI, recommendation scoring, RAG retrieval quality, AI output
-quality or OCR accuracy.
+Apart from the shared grade-validation helper and the Admin navigation, verification and Manage Users
+helpers, no automated tests exist for the frontend UI, recommendation scoring, RAG retrieval quality,
+AI output quality or OCR accuracy.
 
 ## 2. Milestone history
 
@@ -73,7 +74,8 @@ quality or OCR accuracy.
 | M1.5B — Firestore Rules & Seed Button Removal | `2287868` | 22 Nov 2026 | 8 | `firestore.rules`, `firebase.json`, 44 emulator tests, browser seeding removed |
 | Documentation baseline | `3c48bec` | 22 Nov 2026 | 3 | `CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/FIRESTORE_BASELINE.md` |
 | M1.5C — Secure Gemini Integration | **Deferred**; security patch only (`35e75d6`) | 23 Nov 2026 | 6 | Browser-side Gemini OCR removed from `UploadResults.jsx` (no SDK, no key reference, no upload/Analyze controls); manual entry kept; shared grade validation for the SPM leaver and Form 4/5 pages (`gradeEntry.js`, 18 frontend unit tests); B2–B4 fixed on both pages; `CLAUDE.md` updated (no provider secrets in `VITE_*` variables). The server-side Gemini integration was **not** implemented. |
-| M2 — Admin Dashboard & Sidebar | commit after `35e75d6` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
+| M2 — Admin Dashboard & Sidebar | `9e75a38` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
+| M3A — Manage Users (read-only) | commit after `9e75a38` | 23 Nov 2026 | 15 | `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`require_admin`, Admin SDK, allow-listed responses); Manage Users list and User Details pages (on an expired session or unconfirmed access, the login page opens only after sign-out succeeds; a failed sign-out shows an error and a retry); 37 new backend tests and 24 new frontend unit tests (navigation tests updated). No account actions, rules or dependency changes. M3B (account actions) deferred. |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -85,6 +87,9 @@ Recorded test results (not re-run for this documentation baseline):
   backend tests — 26 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged).
 - **M2:** `node --test "src/**/*.test.js"` in `frontend/` — 40 tests passed (22 new Admin tests and the
   18 grade-validation tests); backend tests — 26 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged).
+- **M3A:** backend tests — 63 tests, `OK` (37 new Manage Users tests with mocked Firebase Authentication
+  and Firestore, plus the existing 26); frontend unit tests — 66 passed; Firestore rules — 44/44 passed
+  (rules unchanged).
 
 ## 3. Repository status at baseline
 
@@ -122,8 +127,8 @@ Production smoke tests were run from the local React dev server connected to pro
 | S1 | Browser-exposed Gemini API key. **Active browser use removed** in the M1.5C security patch: `UploadResults.jsx` no longer imports the Gemini SDK, references the key or calls the Gemini API, and the production build contains no Gemini SDK, endpoint or key variable. An earlier check found the Vite dev server still serving the Gemini variable from `frontend/.env`; in a later name-only inspection of the local dev server (22 Nov 2026), neither `VITE_GEMINI_API_KEY` nor `VITE_OLLAMA_API_KEY` was among the variables served to the browser. **Historical exposure remains:** the Gemini key, and any provider key ever placed in a `VITE_*` variable while the dev server ran, must be treated as compromised and rotated or revoked (owner action). | `frontend/src/pages/user/UploadResults.jsx`, `frontend/.env` (local) | High until rotated or revoked | Owner action; M1.5C (deferred) |
 | S2 | Self-asserted academic results. Before the security patch, `UploadResults.jsx` wrote `status: "verified"` / `recordType: "OFFICIAL_SPM_CERT"` / `verificationMethod: "AI_OCR_GEMINI"` even when no OCR ran, and grades were editable. It now writes the manual-entry values. Existing documents may still carry the old values; they never meant independent verification, and no code reads these fields. The manual-entry combination labels an SPM leaver's actual results as `PREDICTED_GRADES` because the rules offer no other label. | `UploadResults.jsx`, `isValidResults` in `firestore.rules` | Low–Medium | Results schema v2 design (separate approval) |
 | S3 | Self-asserted assessment. `ai_assessments` is written by the browser, and `/api/assessment/recommend` derives the score from stored `answers[].isCorrect`. | `DummyAI.jsx`, `recommend_endpoint` in `backend/routes/assessment.py` | Medium | Future |
-| S4 | Incomplete account deletion. Profile deletes `users/{uid}`, then the Auth user; `results/{uid}` and `ai_assessments/{uid}` remain (owners cannot delete them under the rules). | `Profile.jsx`, `firestore.rules` | Medium | M3 (protected FastAPI deletion endpoint) |
-| S5 | Accepted limitation W1: a student can delete and re-create their own `users` document, changing the student type and resetting `createdAt`. It can never grant Admin. | `firestore.rules` comment, emulator suite 12 | Low | M3 |
+| S4 | Incomplete account deletion. Profile deletes `users/{uid}`, then the Auth user; `results/{uid}` and `ai_assessments/{uid}` remain (owners cannot delete them under the rules). | `Profile.jsx`, `firestore.rules` | Medium | M3B (protected FastAPI deletion endpoint) |
+| S5 | Accepted limitation W1: a student can delete and re-create their own `users` document, changing the student type and resetting `createdAt`. It can never grant Admin. | `firestore.rules` comment, emulator suite 12 | Low | M3B |
 | S6 | **Resolved in M2:** the Admin area previously checked the claim in the browser only. `AdminLayout` now calls `GET /api/admin/verify` and shows no admin content unless the server confirms access. Frontend checks still only control what is displayed; Admin data must come from `require_admin` endpoints (M3+). | `ProtectedAdminRoute.jsx`, `frontend/src/components/admin/AdminLayout.jsx` | Resolved | — |
 | S7 | FastAPI interactive docs (`/docs`, `/openapi.json`) are public by default. | `backend/main.py` | Low | Before backend deployment |
 | S8 | No Firebase App Check. | `frontend/src/firebase.js` | Low–Medium | Later |
@@ -167,6 +172,25 @@ Production smoke tests were run from the local React dev server connected to pro
   (configuration) or correcting the default (code) is a separate approved change.
 - Provider-terms review for all providers: see S10.
 
+### Admin user listing (M3A)
+
+- **Read-only.** No endpoint or page changes accounts, profiles, claims or sessions. Account actions
+  (disable, enable, delete) are M3B, deferred pending a separate security and deletion-design approval.
+- **Account limit:** Firebase Authentication accounts are read in pages of 1,000, up to 2,000 per request.
+  If more exist, the response reports `complete: false` and the page warns that results may be
+  incomplete; results are never silently truncated. Search, filters and sorting run in memory on the
+  server over the scanned accounts, newest registration first (ties by uid).
+- **Cost:** each list request reads one Firestore `users` document per scanned Auth account (field
+  mask: name, student type, journey step); a details request reads three documents.
+- **Missing vs orphaned profiles:** enumeration is Auth-driven. Auth accounts without a `users/{uid}`
+  profile are detected and labelled "Profile missing". Firestore profiles without an Auth account are
+  **not** detected; reconciling such orphaned profiles is future work.
+- **Details** are available only for accounts that exist in Firebase Authentication, and only for uids
+  made of letters, digits, `_` and `-` (as created by Email/Password sign-up).
+- **Data minimisation:** responses use explicit allow-lists. Password hashes and salts, tokens, raw
+  custom claims, provider identifiers, grades, assessment answers and scores are never returned. Admin
+  status comes only from the Firebase custom claim.
+
 ### Programme data consistency
 
 Programme data exists in three places, read by different parts of the system:
@@ -207,7 +231,8 @@ Programme data exists in three places, read by different parts of the system:
 |---|---|---|---|
 | — | **M1.5C — Secure Gemini Integration (DEFERRED)** | Security patch done: browser-side Gemini OCR disabled. Remaining: React → authenticated FastAPI → Gemini API. | Not completed. Activation requires a provider-terms and privacy review (users under 18, personal data on SPM slips), rotation or revocation of the old key, and owner approval. Required before OCR returns and before any public deployment. |
 | 1 | M2 — Admin Dashboard and Sidebar | **Implemented.** Admin layout, sidebar, mobile navigation and logout; Admin access confirmed with `/api/admin/verify`. | Module cards are labelled "Coming soon"; no statistics. |
-| 2 | M3 — Manage Users | `require_admin` FastAPI endpoints using the Admin SDK. | Include protected account deletion that also removes `results` and `ai_assessments` (resolves S4, W1). |
+| 2 | M3A — Manage Users (read-only) | **Implemented.** `require_admin` list and details endpoints using the Admin SDK; Manage Users and User Details pages. | Listing limits and missing-profile detection: see section 5. |
+| — | **M3B — Account actions (DEFERRED)** | Disable, enable and delete accounts. | Requires a separate security and deletion-design approval. Deletion must also remove `results` and `ai_assessments` (resolves S4, W1). |
 | 3 | M4 — Manage Programmes | Admin CRUD for programmes. | Decide the programme single source of truth and sync strategy first; guard the seeders. |
 | 4 | M5 — Manage Programme Criteria | Eligibility fields (`min_spm_credits`, `min_math_grade`, `min_bm_grade`, `min_bi_grade`, `requires_science`). | Consumed by `recommendation_service.py`. |
 | 5 | M6 — Manage Preparatory Resources | The 118 `preparatory_guideline` entries inside programme records. | Same data-consistency strategy as M4. |
@@ -218,12 +243,12 @@ additional browser access to Firestore.
 
 ## 7. Recommended next milestone
 
-**M3 — Manage Users.** Add `require_admin` FastAPI endpoints (Admin SDK) for viewing and managing
-accounts, including a protected account-deletion process that also removes `results` and
-`ai_assessments` (resolves S4 and W1). Enable the module by setting `available: true` and a path for it in
-`frontend/src/components/admin/adminNavigation.js` and adding its route in `frontend/src/App.jsx`.
+**M3B — Account actions (disable, enable, delete).** M3A (read-only Manage Users) is implemented.
+M3B starts only after a separate security and deletion-design approval: protected `require_admin`
+endpoints, no actions on the caller's own account or on admin accounts, and an account-deletion process
+that also removes `results` and `ai_assessments` (resolves S4 and W1), with partial-failure handling.
 M1.5C remains deferred: OCR is not operational and manual results entry remains supported. Before OCR
 returns or any public deployment: rotate or revoke the previously exposed key(s), remove the unused
 `VITE_OLLAMA_URL` from `frontend/.env`, resolve the Ollama base-URL discrepancy, complete the
 provider-terms and privacy review (S1, S10, S11), and implement M1.5C.
-Start M3 only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE.md](../CLAUDE.md).
+Start M3B only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE.md](../CLAUDE.md).

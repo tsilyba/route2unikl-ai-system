@@ -9,9 +9,11 @@ import {
   ADMIN_DASHBOARD_PATH,
   ADMIN_NAV_ITEMS,
   ADMIN_NOT_FOUND_TITLE,
+  ADMIN_USERS_PATH,
   findAdminNavItem,
   getAdminPageTitle,
   getComingSoonLabel,
+  getNavSection,
   getUpcomingModules,
 } from './adminNavigation.js';
 
@@ -30,12 +32,13 @@ describe('Admin module configuration', () => {
     );
   });
 
-  test('keys and labels are unique, and every module has an icon and description', () => {
+  test('keys and labels are unique, and every module has an icon, description and section', () => {
     assert.equal(new Set(ADMIN_NAV_ITEMS.map((i) => i.key)).size, ADMIN_NAV_ITEMS.length);
     assert.equal(new Set(ADMIN_NAV_ITEMS.map((i) => i.label)).size, ADMIN_NAV_ITEMS.length);
     for (const item of ADMIN_NAV_ITEMS) {
       assert.ok(item.icon, `${item.key} icon`);
       assert.ok(item.description, `${item.key} description`);
+      assert.ok(['overview', 'management'].includes(item.section), `${item.key} section`);
     }
   });
 
@@ -43,20 +46,28 @@ describe('Admin module configuration', () => {
     assert.ok(Object.isFrozen(ADMIN_NAV_ITEMS));
     assert.ok(ADMIN_NAV_ITEMS.every((item) => Object.isFrozen(item)));
   });
+
+  test('sidebar sections: Dashboard under Overview, all management modules under Management', () => {
+    assert.deepEqual(getNavSection('overview').map((i) => i.key), ['dashboard']);
+    assert.deepEqual(getNavSection('management').map((i) => i.key),
+      ['users', 'programmes', 'criteria', 'resources', 'system']);
+  });
 });
 
-describe('Dashboard is the only available module (M2)', () => {
-  test('only the dashboard is available, at /admin/dashboard', () => {
+describe('Available modules (M2 Dashboard, M3A Manage Users)', () => {
+  test('only the dashboard and Manage Users are available, at their paths', () => {
     const available = ADMIN_NAV_ITEMS.filter((item) => item.available);
-    assert.equal(available.length, 1);
-    assert.equal(available[0].key, 'dashboard');
-    assert.equal(available[0].path, ADMIN_DASHBOARD_PATH);
+    assert.deepEqual(available.map((i) => [i.key, i.path]), [
+      ['dashboard', '/admin/dashboard'],
+      ['users', '/admin/users'],
+    ]);
     assert.equal(ADMIN_DASHBOARD_PATH, '/admin/dashboard');
+    assert.equal(ADMIN_USERS_PATH, '/admin/users');
   });
 
-  test('M3-M7 modules are disabled and have no route', () => {
+  test('M4-M7 modules are disabled and have no route', () => {
     const upcoming = getUpcomingModules();
-    assert.deepEqual(upcoming.map((item) => item.milestone), ['M3', 'M4', 'M5', 'M6', 'M7']);
+    assert.deepEqual(upcoming.map((item) => item.milestone), ['M4', 'M5', 'M6', 'M7']);
     for (const item of upcoming) {
       assert.equal(item.available, false, item.key);
       assert.equal(item.path, null, item.key);
@@ -66,30 +77,38 @@ describe('Dashboard is the only available module (M2)', () => {
   test('disabled modules carry a clear "Coming soon" label with their milestone', () => {
     assert.deepEqual(
       getUpcomingModules().map(getComingSoonLabel),
-      ['Coming soon · M3', 'Coming soon · M4', 'Coming soon · M5', 'Coming soon · M6', 'Coming soon · M7']
+      ['Coming soon · M4', 'Coming soon · M5', 'Coming soon · M6', 'Coming soon · M7']
     );
   });
 });
 
 describe('Active navigation and page titles', () => {
-  test('the dashboard path resolves to the dashboard item (active navigation)', () => {
+  test('dashboard paths resolve to the dashboard item', () => {
     for (const path of ['/admin/dashboard', '/admin/dashboard/', '/admin', '/admin/']) {
       assert.equal(findAdminNavItem(path)?.key, 'dashboard', path);
     }
   });
 
-  test('unfinished or unknown paths resolve to no item', () => {
-    for (const path of ['/admin/users', '/admin/programmes', '/admin/criteria', '/admin/resources',
-      '/admin/system', '/admin/unknown', '/dashboard', '/', '', undefined]) {
+  test('Manage Users and its detail pages resolve to the users item (active navigation)', () => {
+    for (const path of ['/admin/users', '/admin/users/', '/admin/users/abc123', '/admin/users/abc_DEF-9/']) {
+      assert.equal(findAdminNavItem(path)?.key, 'users', path);
+    }
+  });
+
+  test('unfinished, nested or unknown paths resolve to no item', () => {
+    for (const path of ['/admin/usersx', '/admin/users/abc/extra', '/admin/programmes', '/admin/criteria',
+      '/admin/resources', '/admin/system', '/admin/unknown', '/admin/dashboard/x', '/dashboard', '/', '', undefined]) {
       assert.equal(findAdminNavItem(path), null, String(path));
     }
   });
 
-  test('page titles resolve for the dashboard and fall back to "Page not found"', () => {
+  test('page titles resolve and fall back to "Page not found"', () => {
     assert.equal(getAdminPageTitle('/admin/dashboard'), 'Dashboard');
     assert.equal(getAdminPageTitle('/admin'), 'Dashboard');
+    assert.equal(getAdminPageTitle('/admin/users'), 'Manage Users');
+    assert.equal(getAdminPageTitle('/admin/users/abc123'), 'User Details');
     assert.equal(ADMIN_NOT_FOUND_TITLE, 'Page not found');
-    for (const path of ['/admin/users', '/admin/system', '/admin/anything/else']) {
+    for (const path of ['/admin/users/abc/extra', '/admin/programmes', '/admin/system', '/admin/anything/else']) {
       assert.equal(getAdminPageTitle(path), ADMIN_NOT_FOUND_TITLE, path);
     }
   });
