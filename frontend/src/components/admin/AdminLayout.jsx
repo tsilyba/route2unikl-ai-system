@@ -13,6 +13,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { authFetch } from '../../utils/apiClient';
 import { VERIFY_STATUS, verifyAdminAccess } from '../../utils/adminVerification';
+import { createAttemptTracker, endSession } from '../../utils/signOutFlow';
 import { ADMIN_DASHBOARD_PATH, getAdminPageTitle } from './adminNavigation';
 import AdminHeader from './AdminHeader';
 import AdminIcon from './AdminIcons';
@@ -20,6 +21,7 @@ import AdminSidebar from './AdminSidebar';
 import AdminStatusPanel from './AdminStatusPanel';
 
 const SIGNING_OUT = 'signing-out';
+const SIGN_OUT_FAILED = 'sign-out-failed';
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
 const AdminLayout = () => {
@@ -27,9 +29,31 @@ const AdminLayout = () => {
   const [verification, setVerification] = useState({ status: VERIFY_STATUS.CHECKING });
   const [attempt, setAttempt] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [signOutAttempts] = useState(createAttemptTracker);
   const menuButtonRef = useRef(null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  // Automatic sign-out of an expired session (HTTP 401). Admin content stays hidden
+  // throughout: "Session expired" while signing out, then the login page ONLY after
+  // sign-out succeeds; on failure, "Couldn't sign you out" with a retry button.
+  // Superseded attempts, stale verifications and unmounted layouts are ignored.
+  const endExpiredSession = useCallback(
+    (isCurrent = () => true) => {
+      const isLatest = signOutAttempts.begin();
+      setVerification({ status: VERIFY_STATUS.SESSION_EXPIRED });
+      return endSession({
+        signOut: () => signOut(auth),
+        onSignedOut: () => navigate('/login', { replace: true }),
+        onFailed: () => setVerification({ status: SIGN_OUT_FAILED }),
+        isActive: () => isLatest() && isCurrent(),
+      });
+    },
+    [navigate, signOutAttempts]
+  );
+
+  // Pending sign-out callbacks are ignored once the layout unmounts.
+  useEffect(() => () => signOutAttempts.cancel(), [signOutAttempts]);
 
   // Server-side Admin verification. Runs on mount and on every retry.
   // Late or stale results are ignored after unmount (including React StrictMode's
@@ -45,12 +69,7 @@ const AdminLayout = () => {
         if (!isCurrent()) return;
 
         if (result.status === VERIFY_STATUS.SESSION_EXPIRED) {
-          setVerification({ status: VERIFY_STATUS.SESSION_EXPIRED });
-          signOut(auth)
-            .catch(() => {})
-            .finally(() => {
-              if (active) navigate('/login', { replace: true });
-            });
+          endExpiredSession(() => active);
           return;
         }
 
@@ -64,7 +83,7 @@ const AdminLayout = () => {
     return () => {
       active = false;
     };
-  }, [attempt, navigate]);
+  }, [attempt, endExpiredSession]);
 
   const handleRetry = () => {
     setVerification({ status: VERIFY_STATUS.CHECKING });
@@ -122,7 +141,9 @@ const AdminLayout = () => {
   }, [mobileNavOpen, closeMobileNav]);
 
   if (verification.status !== VERIFY_STATUS.VERIFIED) {
-    return <AdminStatusPanel status={verification.status} onRetry={handleRetry} onSignOut={performSignOut} />;
+    // After a failed automatic sign-out, the panel's button retries that sign-out.
+    const onSignOut = verification.status === SIGN_OUT_FAILED ? () => endExpiredSession() : performSignOut;
+    return <AdminStatusPanel status={verification.status} onRetry={handleRetry} onSignOut={onSignOut} />;
   }
 
   return (

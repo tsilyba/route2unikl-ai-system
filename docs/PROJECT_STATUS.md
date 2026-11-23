@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 23 November 2026 (MYT): M3A Manage Users (read-only) implemented, M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 23 November 2026 (MYT): Admin sign-out hardening (commit after `4905ac0`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -16,7 +16,7 @@ Every status claim in this document uses one of these labels.
 | Label | Meaning |
 |---|---|
 | **Repo-verified** | Implementation confirmed by reading the source code in this repository. |
-| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/test_auth.py`. |
+| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`). |
 | **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/**/*.test.js` (run with `node --test "src/**/*.test.js"` in `frontend/`; synthetic data, no browser, Firebase or network). |
 | **Emulator tests** | Covered by the Firestore rules suite in `firestore-tests/` (local emulator, `demo-route2unikl`). |
 | **Browser smoke test** | Exercised manually in the real app: local React dev server connected to production Firebase. Owner-reported. |
@@ -49,9 +49,9 @@ Every status claim in this document uses one of these labels.
 
 | Feature | Main location | Evidence |
 |---|---|---|
-| Admin route guard for `/admin/dashboard` (browser claim check with forced token refresh) | `frontend/src/components/ProtectedAdminRoute.jsx`, `frontend/src/utils/adminClaims.js` | Repo-verified; Browser smoke test (Admin login, dashboard access, refresh) |
+| Admin route guard for `/admin/dashboard` (browser claim check with forced token refresh; an invalid session is signed out before the redirect to login, and a failed sign-out shows a blocked screen with a retry) | `frontend/src/components/ProtectedAdminRoute.jsx`, `frontend/src/utils/adminClaims.js`, `frontend/src/utils/signOutFlow.js` | Repo-verified; Browser smoke test (Admin login, dashboard access, refresh); Frontend unit tests (sign-out flow) |
 | Login / landing redirect by claim | `frontend/src/pages/auth/Login.jsx`, `frontend/src/pages/LandingPage.jsx` | Repo-verified; Browser smoke test |
-| Server confirmation of Admin access before any admin content is shown (`GET /api/admin/verify`: 401 → sign out and go to login; 403 or no explicit `is_admin: true` → denied; auth outage or unreachable server → blocked with Retry; stale results ignored) | `frontend/src/components/admin/AdminLayout.jsx`, `frontend/src/utils/adminVerification.js` | Repo-verified; Frontend unit tests (classification); Unit tests (endpoint) |
+| Server confirmation of Admin access before any admin content is shown (`GET /api/admin/verify`: 401 → sign out, then go to login only after sign-out succeeds; a failed sign-out keeps the admin area blocked ("Couldn't sign you out") with a retry; 403 or no explicit `is_admin: true` → denied; auth outage or unreachable server → blocked with Retry; stale results ignored) | `frontend/src/components/admin/AdminLayout.jsx`, `frontend/src/components/admin/AdminStatusPanel.jsx`, `frontend/src/utils/adminVerification.js`, `frontend/src/utils/signOutFlow.js` | Repo-verified; Frontend unit tests (classification, sign-out flow); Unit tests (endpoint) |
 | Admin layout and dashboard (M2): separate admin layout without the student Header/Footer, fixed desktop sidebar, mobile slide-in navigation (overlay, Escape, focus handling), logout; dashboard with welcome, module overview (M3–M7 disabled, "Coming soon") and access status; no statistics; unknown `/admin/*` paths show an admin "Page not found" | `frontend/src/components/admin/`, `frontend/src/pages/admin/AdminDashboard.jsx`, `frontend/src/App.jsx` | Repo-verified; Frontend unit tests (navigation configuration) |
 | Manage Users, read-only (M3A): `GET /api/admin/users` (search by name or email; student-type, account-status and profile filters; pagination, newest first) and `GET /api/admin/users/{uid}` (account, profile, learning journey, metadata-only record summaries); admin status from custom claims; Auth accounts without a profile flagged; allow-listed fields only; no account actions | `backend/routes/admin_users.py`, `backend/services/user_admin_service.py`, `frontend/src/pages/admin/AdminUsers.jsx`, `frontend/src/pages/admin/AdminUserDetail.jsx` | Repo-verified; Unit tests (endpoints, mocked Firebase); Frontend unit tests (filters, labels, errors) |
 | FastAPI token verification, `require_admin`, `ensure_same_user`, coded HTTP 503 | `backend/core/auth.py` | Repo-verified; Unit tests |
@@ -60,8 +60,8 @@ Every status claim in this document uses one of these labels.
 | Firestore Security Rules | [`firestore.rules`](../firestore.rules) | Emulator tests; deployed to production (owner-reported) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
-Apart from the shared grade-validation helper and the Admin navigation, verification and Manage Users
-helpers, no automated tests exist for the frontend UI, recommendation scoring, RAG retrieval quality,
+Apart from the shared grade-validation helper and the Admin navigation, verification, Manage Users and
+sign-out helpers, no automated tests exist for the frontend UI, recommendation scoring, RAG retrieval quality,
 AI output quality or OCR accuracy.
 
 ## 2. Milestone history
@@ -75,7 +75,8 @@ AI output quality or OCR accuracy.
 | Documentation baseline | `3c48bec` | 22 Nov 2026 | 3 | `CLAUDE.md`, `docs/PROJECT_STATUS.md`, `docs/FIRESTORE_BASELINE.md` |
 | M1.5C — Secure Gemini Integration | **Deferred**; security patch only (`35e75d6`) | 23 Nov 2026 | 6 | Browser-side Gemini OCR removed from `UploadResults.jsx` (no SDK, no key reference, no upload/Analyze controls); manual entry kept; shared grade validation for the SPM leaver and Form 4/5 pages (`gradeEntry.js`, 18 frontend unit tests); B2–B4 fixed on both pages; `CLAUDE.md` updated (no provider secrets in `VITE_*` variables). The server-side Gemini integration was **not** implemented. |
 | M2 — Admin Dashboard & Sidebar | `9e75a38` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
-| M3A — Manage Users (read-only) | commit after `9e75a38` | 23 Nov 2026 | 15 | `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`require_admin`, Admin SDK, allow-listed responses); Manage Users list and User Details pages (on an expired session or unconfirmed access, the login page opens only after sign-out succeeds; a failed sign-out shows an error and a retry); 37 new backend tests and 24 new frontend unit tests (navigation tests updated). No account actions, rules or dependency changes. M3B (account actions) deferred. |
+| M3A — Manage Users (read-only) | `4905ac0` | 23 Nov 2026 | 15 | `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`require_admin`, Admin SDK, allow-listed responses); Manage Users list and User Details pages (on an expired session or unconfirmed access, the login page opens only after sign-out succeeds; a failed sign-out shows an error and a retry); 37 new backend tests and 24 new frontend unit tests (navigation tests updated). No account actions, rules or dependency changes. M3B (account actions) deferred. |
+| Admin sign-out hardening | commit after `4905ac0` | 23 Nov 2026 | 7 | Automatic sign-out after an ended session (`AdminLayout` on HTTP 401 from `/api/admin/verify`; `ProtectedAdminRoute` on invalid-session error codes) no longer ignores a failed Firebase sign-out: the login page opens only after sign-out succeeds; a failure keeps the admin area blocked and shows "Couldn't sign you out" with "Try signing out again". Shared helper `frontend/src/utils/signOutFlow.js` (also used by M3A): overlapping sign-outs share one attempt; callbacks of superseded attempts, stale verifications and unmounted components are ignored. 18 new frontend unit tests. Manual logout, student redirects, backend, rules and dependencies unchanged. |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -89,7 +90,10 @@ Recorded test results (not re-run for this documentation baseline):
   18 grade-validation tests); backend tests — 26 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged).
 - **M3A:** backend tests — 63 tests, `OK` (37 new Manage Users tests with mocked Firebase Authentication
   and Firestore, plus the existing 26); frontend unit tests — 66 passed; Firestore rules — 44/44 passed
-  (rules unchanged).
+  (rules unchanged); manual browser verification — 10/10 (owner-reported).
+- **Admin sign-out hardening:** frontend unit tests — 84 passed (18 new sign-out flow tests); backend
+  tests — 63 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged); frontend production build and
+  lint of the changed files — passed; manual browser regression checks — 5/5 (owner-reported).
 
 ## 3. Repository status at baseline
 
@@ -252,3 +256,106 @@ returns or any public deployment: rotate or revoke the previously exposed key(s)
 `VITE_OLLAMA_URL` from `frontend/.env`, resolve the Ollama base-URL discrepancy, complete the
 provider-terms and privacy review (S1, S10, S11), and implement M1.5C.
 Start M3B only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE.md](../CLAUDE.md).
+
+## 8. Admin Module — Fail-Closed Security & Testing Register
+
+A living technical record of the security behaviour of the completed Admin milestones (M1, M1.5A,
+M1.5B, M2, M3A and the Admin sign-out hardening), based on the repository code and the recorded test
+results. It is **not** the final Development and Testing Report. Last recorded: 23 November 2026 (MYT).
+
+"Fail-closed" means that any failure to confirm identity or Admin status leaves the Admin area and
+Admin data unavailable. Frontend checks only decide what is displayed. Data is protected by
+`require_admin` on the FastAPI endpoints and by `firestore.rules`.
+
+**Evidence labels used in this section** (consistent with the evidence labels at the top of this document):
+
+- **Backend unit**: mocked FastAPI tests in `backend/tests/`.
+- **Frontend unit**: Node test-runner tests in `frontend/src/**/*.test.js`.
+- **Emulator**: Firestore rules tests in `firestore-tests/` (local emulator).
+- **Manual**: owner-reported browser verification. Results are recorded per milestone; individual steps,
+  screenshots and logs are not stored in the repository.
+- **Code inspection**: confirmed by reading the source only.
+- **Not yet tested**: no recorded test.
+
+### A. Authentication and authorization
+
+| # | Behaviour | Responsible component / endpoint | When verification fails | Evidence |
+|---|---|---|---|---|
+| A1 | Admin status comes only from the Firebase custom claim `admin: true` (strict boolean) | Frontend: `hasAdminClaim` in `frontend/src/utils/adminClaims.js` (forced token refresh), used by `ProtectedAdminRoute.jsx` and `Login.jsx`. Backend: `get_current_user` in `backend/core/auth.py` (`is_admin = decoded.get("admin") is True`) | A non-admin account is redirected to `/dashboard`. If the claim cannot be read (for example, after a network failure), `ProtectedAdminRoute` shows "Unable to verify access" with Try Again and no admin content. The backend treats any other value (`false`, the string `"true"`, missing) as non-admin. The email address and the Firestore `role` field are never used. | Backend unit (non-boolean or false claims are not admin; string and false claims receive 403 on Manage Users); Emulator (a string claim grants nothing, suite 5); Code inspection (frontend claim helper, which has no unit test); Browser smoke test (M1: Admin login, dashboard access, refresh) |
+| A2 | Backend Admin authorization | `require_admin` in `backend/core/auth.py` | HTTP 403 "Administrator privileges required." The endpoint handler does not run. | Backend unit |
+| A3 | Server confirmation before any Admin content renders | `GET /api/admin/verify` (`backend/routes/auth_check.py`, `require_admin`); `frontend/src/components/admin/AdminLayout.jsx`; `frontend/src/utils/adminVerification.js` | The Admin layout renders only after HTTP 200 with `is_admin === true` for the same uid. Any other outcome shows a full-screen status panel instead of the Admin area. Late or stale results are ignored after unmount, retry or an account change. | Frontend unit (`adminVerification.test.js`, 13 tests: strict `is_admin`, different-account response, 401/403/503/network classification); Backend unit (endpoint: student denied, admin recognised); Code inspection (render gate) |
+| A4 | HTTP 401 and 403 | Backend: `get_current_user`, `require_admin`, `ensure_same_user`. Frontend: `AdminLayout.jsx`, `AdminStatusPanel.jsx`, Manage Users `RequestErrorPanel` (`AdminUsers.jsx`) | Backend 401: missing or non-Bearer token; invalid, expired, revoked or malformed token; deleted account. Backend 403: disabled account, non-admin on Admin endpoints, and a request for another user's student records (this also applies to admins). Frontend 401: automatic sign-out (section B). Frontend 403: "Admin access not confirmed" with Sign out, shown instead of the Admin area (Admin layout) or instead of the user data (Manage Users pages, where the already verified navigation stays visible). | Backend unit; Frontend unit (classification, Manage Users error descriptions); Code inspection (panels) |
+| A5 | Backend unavailability and verification failures | Backend: `get_current_user` (HTTP 503 `AUTH_SERVICE_UNAVAILABLE`), Manage Users routes (HTTP 503 `USER_SERVICE_UNAVAILABLE`). Frontend: `AdminLayout.jsx`, `ProtectedAdminRoute.jsx`, `RequestErrorPanel` | If Firebase initialisation or token verification cannot complete, the backend returns 503 and never authenticates; it logs only the exception type. The frontend shows a blocked panel for a sign-in outage, an unreachable server or an unexpected response, with Try again (and Sign out in the Admin layout). These are availability measures; the security property is that no failure grants access. | Backend unit (503 cases, no secrets in responses or logs); Frontend unit (classification); Code inspection |
+| A6 | Students attempting to access Admin routes | Frontend: `ProtectedAdminRoute.jsx` (navigation only). Backend: `require_admin` on every Admin endpoint. Firestore: `firestore.rules` | Redirect to `/dashboard`, which is a convenience, not protection. Admin endpoints return 403. Students can access only their own Firestore documents. | Backend unit (student receives 403 from `/api/admin/verify` and both Manage Users endpoints); Emulator (no access to other students' records, suite 3; Admin cannot be self-granted through profile fields, suites 4 and 12); Code inspection (redirect) |
+| A7 | Protection of Admin API endpoints | `GET /api/admin/verify`, `GET /api/admin/users`, `GET /api/admin/users/{uid}`, all with `Depends(require_admin)` | Authorization runs before the handler, so denied requests never reach account listing or Firestore reads. The Manage Users routes accept only GET; other methods return 405. Invalid uids return 422 before any lookup. | Backend unit (wiring tests on the real `main.app`: routes registered, authentication required, GET only) |
+| A8 | Firestore Security Rules | `firestore.rules` | The Admin claim grants no browser read, list or write access to `users`, `results` or `ai_assessments`, and a string claim grants nothing. Programme data cannot be written from any browser client, Admin included. Students cannot grant themselves Admin through document fields. Unknown collections and unauthenticated access to private data are denied. The Admin SDK bypasses these rules, so the backend authorizes every Admin route itself (A2). | Emulator (44/44: suites 1, 3, 4, 5, 6, 9, 12); deployed to `route2unikl` on 22 Nov 2026 (owner-reported) |
+
+### B. Sign-out and session security
+
+Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRedirect`,
+`createAttemptTracker`), used by `AdminLayout.jsx`, `ProtectedAdminRoute.jsx` and the Manage Users pages
+(through `adminUsers.js` and `adminUsersApi.js`).
+
+| # | Behaviour | Where | What happens | Evidence |
+|---|---|---|---|---|
+| B1 | Automatic sign-out after an invalid Admin session | `AdminLayout.jsx` (HTTP 401 from `/api/admin/verify`); `ProtectedAdminRoute.jsx` (claim check fails with a session-ended Firebase error code); Manage Users pages (HTTP 401 from their endpoints) | Firebase sign-out starts automatically. For `auth/user-token-expired` and `auth/user-disabled`, the Firebase SDK signs out by itself, and the guard follows the resulting signed-out state. | Code inspection; Frontend unit (helper) |
+| B2 | No redirect to `/login` until Firebase sign-out succeeds | `endSession` and `signOutThenRedirect` | The redirect, or the "signed out" state, is applied only after the sign-out promise resolves. A failure, whether rejected or thrown immediately, never redirects. | Frontend unit (`signOutFlow.test.js`, 18 tests; sign-out tests in `adminUsers.test.js`) |
+| B3 | Admin content blocked while sign-out is pending | `AdminStatusPanel.jsx`, `ProtectedAdminRoute.jsx`, `RequestErrorPanel` | The Admin layout shows the "Session expired" panel ("Your session is no longer valid. Signing you out…") with no buttons. The route guard shows "Verifying admin access..." or "Signing out...". On Manage Users pages, the error panel replaces the page content ("Signing you out and returning to the login page…"); the already verified Admin navigation remains visible, but no user data is shown. | Code inspection |
+| B4 | Admin content blocked after a failed sign-out | Same components | The Admin layout and the route guard show "Couldn't sign you out"; the Manage Users panel shows "We couldn't sign you out. Check your internet connection, then try again." There is no redirect, no admin data and no "Back to login" link while the session may still be active. | Code inspection; Frontend unit (helper and Manage Users sign-out controls); Not yet tested in a browser (see E3) |
+| B5 | "Try signing out again" recovery | Same components | Starts a new sign-out attempt. The button is hidden or disabled while signing out. On success the user goes to `/login`; on failure the failure screen returns. | Frontend unit (retry after failure); Code inspection |
+| B6 | Stale verification and sign-out callbacks | `createAttemptTracker`; the current-run check in `AdminLayout.jsx` and `ProtectedAdminRoute.jsx`; cancellation on unmount | Callbacks of a superseded attempt, a restarted verification or an unmounted component are ignored, so they cannot redirect or change the screen. | Frontend unit (stale, superseded and unmounted cases); Code inspection (wiring) |
+| B7 | Overlapping sign-out attempts | `signOutFlow.js` | Overlapping requests share one Firebase sign-out; each still-active caller receives the same outcome. The next request after it settles starts a new attempt. | Frontend unit |
+| B8 | Manual Admin logout (M2, unchanged) | `performSignOut` in `AdminLayout.jsx` (header and sidebar Log out, with a confirmation dialog) | "Signing out" panel, then `/login` after sign-out. On failure, only the error code is logged, an alert says "We couldn't log you out", and access is re-verified; there is no redirect. | Code inspection |
+
+### C. Manage Users security (M3A)
+
+| # | Protection | Implementation | Evidence |
+|---|---|---|---|
+| C1 | Server-side Admin authorization on the list and detail endpoints | `Depends(require_admin)` on `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`backend/routes/admin_users.py`). Query parameters and the uid are validated (HTTP 422). | Backend unit (`test_admin_users.py`: no token, or an invalid, expired, revoked or deleted-account token → 401; student, string or false claim → 403; sign-in outage → 503; none of these access Firebase Authentication accounts or Firestore) |
+| C2 | Response-field allow-list | The service builds responses from explicit allow-lists, and FastAPI response models drop any other field. List items contain uid, email, name, student type, is_admin, disabled, email_verified, created and last sign-in times, profile status and journey step. Details add sign-in providers, a profile summary and metadata-only record summaries. | Backend unit (exact field sets for list items and details) |
+| C3 | Sensitive account and academic data excluded | Never returned: password hashes and salts, token data, raw custom claims, phone numbers, provider identifiers, grades, assessment answers, scores and the academic snapshot. Firestore reads use field masks; the `results` and `answers` arrays are read on the server only to count entries. Errors are generic, and logs record only the exception type. | Backend unit (sentinel values never appear in responses or logs; field masks asserted) |
+| C4 | Administrator status from the custom claim only | A profile `role` of `"admin"` and a string claim `"true"` are not treated as admin. | Backend unit |
+| C5 | Student access restrictions | Backend 403 for students on both endpoints; the frontend route guard redirects students to `/dashboard` (navigation only). | Backend unit; Code inspection (redirect) |
+| C6 | No account modifications in M3A | Only GET routes exist (other methods return 405). The service makes no write calls. In tests, the mutating Firebase Admin Auth functions (create, update and delete users, set custom claims, revoke refresh tokens) are patched and asserted unused, and the fake Firestore has no write methods. | Backend unit; Code inspection |
+| C7 | Missing profiles and incomplete listings (data completeness, **not** a security boundary) | Auth accounts without a `users/{uid}` profile are labelled "Profile missing". Listings scan at most 2,000 Auth accounts and report `complete: false` with a warning instead of silently truncating. Firestore profiles without an Auth account are not detected. | Backend unit |
+
+### D. Evidence and verification
+
+| Evidence | Scope | Latest recorded result |
+|---|---|---|
+| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37) | 63 tests, `OK` |
+| Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18) | 84/84 passed |
+| Firestore emulator tests | `firestore-tests/rules.test.mjs` (12 suites) | 44/44 passed |
+| Frontend build and lint | Production build; lint of the changed files with zero warnings allowed | Passed (pre-existing project-wide lint issues: see E6) |
+| Manual (owner-reported) | M3A Manage Users browser verification | 10/10 |
+| Manual (owner-reported) | Admin sign-out hardening browser regression checks | 5/5 |
+| Manual (owner-reported) | Earlier browser smoke tests recorded in section 1 (for example, M1 Admin login, dashboard access and refresh) | See section 1 |
+
+Manual results are recorded per milestone; this register does not attribute individual behaviours to
+specific manual steps. Not yet tested: a failed automatic sign-out in a real browser (B4, B5; the
+helper logic is covered by frontend unit tests), and rendered-component behaviour beyond code
+inspection (A3, B3–B6).
+
+### E. Known limitations and open issues
+
+| # | Limitation | Type | Effect / status |
+|---|---|---|---|
+| E1 | If Firebase's own sign-out fails during a token refresh (for an expired token or a disabled account), the stale-result check in `ProtectedAdminRoute` discards the error and the guard stays on "Verifying admin access..." until the page is reloaded. | Usability problem | Access remains blocked (fail-closed). Open. |
+| E2 | A persistent browser-storage failure can prevent sign-out from completing. The user stays on the blocked "Couldn't sign you out" screen, and the stored session can remain in that browser until site data is cleared. | Security limitation (residual local session) and usability problem | Admin content stays blocked in the app. Recovery is user-side, such as clearing the site's data. Open. |
+| E3 | The automatic sign-out failure UI has helper-level automated tests, but no browser-level failure-injection test. | Test-coverage gap | Open. |
+| E4 | The component wiring (`AdminLayout`, `ProtectedAdminRoute`, `AdminStatusPanel`, the Manage Users pages) has no rendered-component unit tests; that would need a test-renderer dependency. | Test-coverage gap | Open. |
+| E5 | Student-facing sign-out handling is outside the hardening patch: `ApiAuthErrorPanel.jsx` ignores a failed sign-out and then redirects; `Login.jsx` ignores a failed sign-out after a failed claim check; the student `Header.jsx` Logout has no error handling. | Security limitation (low) and future development task | Open; needs a separate approval. |
+| E6 | Project-wide lint: 21 errors and 2 warnings in 15 files not touched by M3A or the sign-out hardening (mostly unused variables; `react-hooks` findings in `DummyAI.jsx` and `Recommendation.jsx`). | Future development task (code quality) | Open. |
+| E7 | M3B account actions (disable, enable, delete) are not implemented; S4 and S5 remain open. | Future development task | Deferred pending a security and deletion-design approval. |
+| E8 | A retry from the Admin layout's "Couldn't sign you out" panel is not tied to a verification run; in a rare overlap, a late failure could block a screen that had just been verified again. | Usability problem | Fails closed. Open. |
+| E9 | A failed manual Admin logout uses an alert and re-verification instead of the shared failure panel. | Usability problem and future development task | Open. |
+| E10 | Manage Users does not detect Firestore profiles without an Auth account, and scans at most 2,000 accounts per request (reported, not hidden). | Future development task | Open (section 5). |
+
+Other project-wide security items (S1–S11) are tracked in [section 5](#5-known-limitations-and-technical-debt).
+This register does not claim that every edge case is resolved.
+
+### Future Admin Module report
+
+A comprehensive Admin Module Development and Testing Report will be prepared after all Admin Module
+milestones are completed. The report will consolidate implementation decisions, architecture, security
+controls, test cases, results, defect history, limitations and supporting evidence from the milestone records.

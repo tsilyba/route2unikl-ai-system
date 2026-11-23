@@ -3,6 +3,7 @@
 // Full-screen states shown INSTEAD of the Admin area while server-side Admin
 // verification is pending or has not succeeded. Admin content is never rendered
 // behind these panels.
+import { SIGN_OUT_FAILED_MESSAGE } from '../../utils/signOutFlow';
 import AdminIcon from './AdminIcons';
 
 const PANELS = {
@@ -24,8 +25,17 @@ const PANELS = {
     icon: 'lock',
     tone: 'warning',
     title: 'Session expired',
-    text: 'Your session is no longer valid. Redirecting you to the login page…',
+    text: 'Your session is no longer valid. Signing you out…',
     busy: true,
+  },
+  // Automatic sign-out failed: the admin area stays blocked and nothing redirects.
+  'sign-out-failed': {
+    icon: 'lock',
+    tone: 'danger',
+    title: "Couldn't sign you out",
+    text: `Your session is no longer valid. ${SIGN_OUT_FAILED_MESSAGE}`,
+    signOut: true,
+    signOutLabel: 'Try signing out again',
   },
   forbidden: {
     icon: 'lock',
@@ -103,7 +113,7 @@ const AdminStatusPanel = ({ status, onRetry, onSignOut }) => {
                 onClick={onSignOut}
                 className="w-full rounded-lg border border-slate-300 py-3 font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer"
               >
-                Sign out
+                {panel.signOutLabel ?? 'Sign out'}
               </button>
             )}
           </div>

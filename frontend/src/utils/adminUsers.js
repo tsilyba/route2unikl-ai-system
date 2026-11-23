@@ -6,6 +6,7 @@
 //   node --test src/utils/adminUsers.test.js
 //
 // Limits mirror backend/routes/admin_users.py; the backend validates every value again.
+import { SIGN_OUT_FAILED_MESSAGE } from './signOutFlow.js';
 
 export const USERS_API_PATH = '/api/admin/users';
 export const DEFAULT_PAGE_SIZE = 20;
@@ -192,16 +193,9 @@ export const describeUserRequestError = (error) => {
     message: "We couldn't load user information. Please try again.", retry: true, signOut: false };
 };
 
-// Signs out, then opens the login page. Navigates ONLY after sign-out succeeds; on
-// failure it rejects without navigating, so the page can show an error and a retry.
-// `signOut` and `navigate` are passed in so this runs without Firebase or a router.
-export const signOutThenRedirect = async (signOut, navigate) => {
-  await signOut();
-  navigate('/login', { replace: true });
-};
-
-export const SIGN_OUT_FAILED_MESSAGE =
-  "We couldn't sign you out. Check your internet connection, then try again.";
+// Shared sign-out helper and message (see signOutFlow.js): the login page opens
+// only after sign-out succeeds; a failure rejects without navigating.
+export { SIGN_OUT_FAILED_MESSAGE, signOutThenRedirect } from './signOutFlow.js';
 
 // Sign-out controls for an error panel. `status` is 'idle', 'pending' or 'failed'.
 // Returns null when the error needs no sign-out. A failed sign-out always shows an
