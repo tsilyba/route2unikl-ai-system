@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 23 November 2026 (MYT): Admin sign-out hardening (commit after `4905ac0`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 24 November 2026 (MYT): M3B-1B-P0 experimental Firestore account-access guard, an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -76,7 +76,7 @@ AI output quality or OCR accuracy.
 | M1.5C — Secure Gemini Integration | **Deferred**; security patch only (`35e75d6`) | 23 Nov 2026 | 6 | Browser-side Gemini OCR removed from `UploadResults.jsx` (no SDK, no key reference, no upload/Analyze controls); manual entry kept; shared grade validation for the SPM leaver and Form 4/5 pages (`gradeEntry.js`, 18 frontend unit tests); B2–B4 fixed on both pages; `CLAUDE.md` updated (no provider secrets in `VITE_*` variables). The server-side Gemini integration was **not** implemented. |
 | M2 — Admin Dashboard & Sidebar | `9e75a38` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
 | M3A — Manage Users (read-only) | `4905ac0` | 23 Nov 2026 | 15 | `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`require_admin`, Admin SDK, allow-listed responses); Manage Users list and User Details pages (on an expired session or unconfirmed access, the login page opens only after sign-out succeeds; a failed sign-out shows an error and a retry); 37 new backend tests and 24 new frontend unit tests (navigation tests updated). No account actions, rules or dependency changes. M3B (account actions) deferred. |
-| Admin sign-out hardening | commit after `4905ac0` | 23 Nov 2026 | 7 | Automatic sign-out after an ended session (`AdminLayout` on HTTP 401 from `/api/admin/verify`; `ProtectedAdminRoute` on invalid-session error codes) no longer ignores a failed Firebase sign-out: the login page opens only after sign-out succeeds; a failure keeps the admin area blocked and shows "Couldn't sign you out" with "Try signing out again". Shared helper `frontend/src/utils/signOutFlow.js` (also used by M3A): overlapping sign-outs share one attempt; callbacks of superseded attempts, stale verifications and unmounted components are ignored. 18 new frontend unit tests. Manual logout, student redirects, backend, rules and dependencies unchanged. |
+| Admin sign-out hardening | `69bcc07` | 23 Nov 2026 | 7 | Automatic sign-out after an ended session (`AdminLayout` on HTTP 401 from `/api/admin/verify`; `ProtectedAdminRoute` on invalid-session error codes) no longer ignores a failed Firebase sign-out: the login page opens only after sign-out succeeds; a failure keeps the admin area blocked and shows "Couldn't sign you out" with "Try signing out again". Shared helper `frontend/src/utils/signOutFlow.js` (also used by M3A): overlapping sign-outs share one attempt; callbacks of superseded attempts, stale verifications and unmounted components are ignored. 18 new frontend unit tests. Manual logout, student redirects, backend, rules and dependencies unchanged. |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -94,6 +94,10 @@ Recorded test results (not re-run for this documentation baseline):
 - **Admin sign-out hardening:** frontend unit tests — 84 passed (18 new sign-out flow tests); backend
   tests — 63 tests, `OK`; Firestore rules — 44/44 passed (rules unchanged); frontend production build and
   lint of the changed files — passed; manual browser regression checks — 5/5 (owner-reported).
+- **M3B-1B-P0 (experimental, not deployed):** `npm test` in `firestore-tests/` (production
+  `firestore.rules`) — 44/44 passed; experimental suite (explicit command, see section 8 F) — 100/100
+  passed; mutation testing — see section 8 F. Backend and frontend tests were not re-run (no backend or
+  frontend changes).
 
 ## 3. Repository status at baseline
 
@@ -260,8 +264,9 @@ Start M3B only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE
 ## 8. Admin Module — Fail-Closed Security & Testing Register
 
 A living technical record of the security behaviour of the completed Admin milestones (M1, M1.5A,
-M1.5B, M2, M3A and the Admin sign-out hardening), based on the repository code and the recorded test
-results. It is **not** the final Development and Testing Report. Last recorded: 23 November 2026 (MYT).
+M1.5B, M2, M3A and the Admin sign-out hardening), and of the experimental, **undeployed** M3B-1B-P0
+account-access guard (section F), based on the repository code and the recorded test results. It is
+**not** the final Development and Testing Report. Last recorded: 24 November 2026 (MYT).
 
 "Fail-closed" means that any failure to confirm identity or Admin status leaves the Admin area and
 Admin data unavailable. Frontend checks only decide what is displayed. Data is protected by
@@ -272,6 +277,9 @@ Admin data unavailable. Frontend checks only decide what is displayed. Data is p
 - **Backend unit**: mocked FastAPI tests in `backend/tests/`.
 - **Frontend unit**: Node test-runner tests in `frontend/src/**/*.test.js`.
 - **Emulator**: Firestore rules tests in `firestore-tests/` (local emulator).
+- **Emulator mutation**: the experimental suite re-run in the emulator against deliberately weakened
+  copies of the experimental rules; a weakening counts as detected when tests fail (M3B-1B-P0 only; the
+  scripts are not stored in the repository).
 - **Manual**: owner-reported browser verification. Results are recorded per milestone; individual steps,
   screenshots and logs are not stored in the repository.
 - **Code inspection**: confirmed by reading the source only.
@@ -325,7 +333,9 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 |---|---|---|
 | Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37) | 63 tests, `OK` |
 | Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18) | 84/84 passed |
-| Firestore emulator tests | `firestore-tests/rules.test.mjs` (12 suites) | 44/44 passed |
+| Firestore emulator tests (production rules) | `firestore-tests/rules.test.mjs` against `firestore.rules`, run by `npm test` (12 suites, defined in `shared-rules-suite.mjs`) | 44/44 passed |
+| Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) | 100/100 passed |
+| Mutation testing (experimental, M3B-1B-P0) | The experimental suite re-run against deliberately weakened copies of the experimental rules (section F) | 19 of 20 weakenings detected; the undetected one removes a redundant check |
 | Frontend build and lint | Production build; lint of the changed files with zero warnings allowed | Passed (pre-existing project-wide lint issues: see E6) |
 | Manual (owner-reported) | M3A Manage Users browser verification | 10/10 |
 | Manual (owner-reported) | Admin sign-out hardening browser regression checks | 5/5 |
@@ -353,6 +363,85 @@ inspection (A3, B3–B6).
 
 Other project-wide security items (S1–S11) are tracked in [section 5](#5-known-limitations-and-technical-debt).
 This register does not claim that every edge case is resolved.
+
+### F. M3B-1B-P0 — Experimental Firestore Account-Access Guard
+
+> **Status: experimental proof of concept, NOT deployed.** The production rules file `firestore.rules`
+> is unchanged (byte-identical to `69bcc07`), and production Firestore has no account-access guard. The
+> results below come from the local emulator (`demo-route2unikl`) with mock tokens. None of them is a
+> production security guarantee.
+
+**Purpose.** Disabling or deleting a Firebase Authentication account, or revoking its refresh tokens,
+does not end ID tokens that were already issued: they remain valid until they expire (up to one hour),
+and Firestore Security Rules do not check revocation. P0 tests whether the rules can deny such an
+account's browser access to its own private documents immediately, using a record that only the backend
+can write.
+
+**Security boundary.** The guard covers browser access through the Firebase SDK to `users/{uid}`,
+`results/{uid}` and `ai_assessments/{uid}` only. It does not cover the FastAPI backend (the Admin SDK
+bypasses rules; the backend relies on its own token checks, section A), the public `programs` catalogue,
+or Firebase Authentication itself.
+
+**Files** (all in `firestore-tests/`):
+
+| File | Role |
+|---|---|
+| `account-access.experimental.rules` | The experimental rules: the production rules plus the guard. Test-only: `firebase.json` does not reference it, so `firebase deploy` never uses it. |
+| `account-access.experimental.suite.mjs` | Experimental suite: the original 44 tests, with an active record for every test identity, plus 56 guard tests. Refuses to run if the loaded rules do not contain the guard. Runs only by explicit command; its name does not match the `node --test` default patterns. |
+| `shared-rules-suite.mjs` | Shared harness and the original 44 tests, moved unchanged from `rules.test.mjs`. |
+| `rules.test.mjs` | Production baseline: the 44 tests against `../firestore.rules`. Run by `npm test`. |
+
+Commands, run from `firestore-tests/`:
+
+- Production baseline: `npm test`
+- Experimental: `firebase emulators:exec --only firestore --project demo-route2unikl --config ../firebase.json "node --test --test-reporter=spec account-access.experimental.suite.mjs"`
+
+**Record schema.** `account_access/{uid}`, written only by the backend (Admin SDK):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `state` | `'active'`, `'disabled'`, `'deleting'` or `'deleted'` | Only `'active'` grants access. |
+| `version` | integer ≥ 0 | Incremented by the backend; not used in access decisions. |
+| `sessionsValidAfter` | timestamp, optional | Set when an account is re-enabled; a session must have started after it. |
+
+Any other field makes the record malformed, and access is denied. Operation locks, audit history and
+bookkeeping timestamps (such as `updatedAt`) should therefore be stored in separate backend-only
+collections. This is a recommendation; it is not implemented.
+
+| # | Protection | Implementation (experimental rules) | Evidence |
+|---|---|---|---|
+| F1 | One guard on every operation the rules allow on the three collections | `isActiveOwner(uid)`: the existing `isOwner(uid)` check, then `hasActiveAccount()`. It starts all 8 `allow` statements (`get`, `create` and `update`, plus `delete` on `users`). No `list` is allowed. The owner check runs first, so the record is read only for the owner's own requests. | Emulator (suite 0 requires the exact list of all 12 `allow` statements in the file); Emulator mutation (removing the guard from any one of the 8 statements: 23–37 tests fail); Code inspection |
+| F2 | Only an active, well-formed record grants access | Denied: `disabled`, `deleting` and `deleted` records, a missing record, and malformed records (16 cases: missing fields, wrong types, unknown or wrongly cased states, a negative or non-integer `version`, a wrongly typed threshold, misspelt or extra fields). Applies to get, create, update and delete; stored data is unchanged afterwards. | Emulator (suite 13); Emulator mutation (state check removed: 9 tests fail; extra-field check removed: 2; `version` checks removed: 3; missing record allowed, as in the documented Realtime Database pattern: 22) |
+| F3 | Deleted academic documents cannot be recreated | With the record at `deleting` or `deleted` and the documents removed by the backend, a session that is still valid cannot create or read `users`, `results` or `ai_assessments`. | Emulator (suite 13) |
+| F4 | Re-enabled accounts: a session that began before the threshold is denied | `timestamp.value((auth_time − 1) × 1000) >= sessionsValidAfter`, that is, `auth_time` ≥ ceil(threshold) + 1 second. A missing or non-integer `auth_time` is denied when a threshold exists; without a threshold, `auth_time` is not consulted. A threshold never overrides a non-active state. | Emulator (suite 14: 14 boundary cases, including sign-ins in the same second and thresholds 1 µs past a whole second; missing, null, string, float and boolean `auth_time`); Emulator mutation (comparison that rounds the threshold down: 6 tests fail; no one-second margin: 4; `seconds()`-based comparison: 10; missing `auth_time` tolerated: 1) |
+| F5 | `account_access` is backend-only | `allow read, write: if false` (the catch-all also denies it). Students, the Admin claim, a string claim and signed-out visitors cannot get, list, query, create, update or delete records, or write sub-collections. A student cannot activate, create or alter their own record or threshold. | Emulator (suite 15); Emulator mutation (owner read allowed: 6 tests fail) |
+| F6 | Existing ownership, payload and query restrictions still apply | The original 44 tests pass against the experimental rules. Every test identity has an active record, so denials come from the original checks, not from the guard. An Admin with an active record still has no access to students' documents; list, filtered and collection-group queries remain denied. | Emulator (suites 1–12 and 16); Emulator mutation (payload validation removed: 16 tests fail; an extra wildcard match granting owner reads: 40) |
+| F7 | Production rules unchanged; ordinary deployment and default test runs do not pick up the experimental rules | `firebase.json` references only `firestore.rules`, which is byte-identical to `69bcc07`. `npm test` and a bare `node --test` run only the production baseline. | Code inspection (`firebase.json`; Git object hash of `firestore.rules`); Emulator (a bare `node --test` ran only the 44 baseline tests); Emulator mutation (the experimental suite refused to run with the production rules; with the experimental rules copied into a scratch `firestore.rules`, the baseline failed 15 tests) |
+
+**Mutation testing.** The experimental suite was re-run against 20 deliberately weakened copies of the
+experimental rules (F1–F6). 19 were detected, each making between 1 and 40 tests fail. The undetected
+one removes the threshold's type check, which is redundant: the timestamp comparison itself denies a
+wrongly typed threshold. The scripts ran from a temporary directory and are not stored in the repository.
+
+**Emulator observation (not documented by Firebase).** In the emulator, the rules function
+`Timestamp.seconds()` returned the second within the minute (0–59), not seconds since the epoch. A first
+draft that used it accepted every old session; the boundary tests rejected it. The final comparison uses
+timestamps only (`timestamp.value`), which the emulator compared to 1 µs. The Firebase rules reference
+states neither the range of `seconds()` nor the precision of timestamp comparison.
+
+**Limitations and pending work**
+
+| # | Limitation | Type | Status |
+|---|---|---|---|
+| FL1 | Not deployed. Production Firestore has no account-access guard: a disabled or deleted account keeps browser access to its own documents until its ID token expires (up to one hour). | Security limitation | Open. Deployment needs FL2, FL5 and separate owner approval. |
+| FL2 | Production `auth_time`: the Firestore rules reference for `request.auth.token` does not list `auth_time`, and the emulator tests used hand-built mock tokens. If production tokens do not provide it as an integer, re-enabled accounts would be denied (fails closed). | Not yet tested | Needs an owner-approved production check on a test account before deployment. |
+| FL3 | Session-check precision: `auth_time` is in whole seconds, so a genuine sign-in less than 2 seconds after the threshold is denied (fails closed). The check assumes `auth_time` is within one second of the real sign-in time, on a clock consistent with Firestore server time; Firebase does not document this. The backend must set the threshold with a server timestamp, confirm the account is disabled first, and wait about 3 seconds before re-enabling it. | Security limitation (residual) and design constraint | Open; backend design (M3B-2). |
+| FL4 | Cost and latency: about one extra billed document read per owner request on the three collections, including denied requests (Firebase bills document reads made by rules), using 1 of the 10 document reads allowed per rules evaluation. | Cost and performance | Code inspection; not measured. |
+| FL5 | Records are not provisioned: registration and login do not create `account_access` records, and no backfill exists. Deploying the experimental rules now would deny every account, Admin accounts included. | Future development task | Pending (next M3B-1B step). |
+| FL6 | Student self-delete (`Profile.jsx`) still deletes from the browser and does not use the guard; S4 remains open. | Future development task | Pending (M3B). |
+| FL7 | Firebase does not document the ordering between a rules check and a simultaneous change to the record; a write made just before an account is disabled may still be saved. The emulator tests include no concurrency testing. | Security limitation (residual) | Not yet tested. |
+| FL8 | The guard does not apply to the FastAPI backend, which uses the Admin SDK (rules do not apply) and relies on its own token checks (section A). | Boundary (by design) | — |
+| FL9 | The emulator is not production: rules-engine details, token contents, billing and latency may differ. | Test-coverage gap | Open. |
 
 ### Future Admin Module report
 

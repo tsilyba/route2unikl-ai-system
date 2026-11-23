@@ -1,0 +1,272 @@
+rules_version = '2';
+
+// =============================================================================
+// Route2UniKL - Cloud Firestore Security Rules (Milestone 1.5B)
+// + EXPERIMENTAL account-access guard (M3B-1B-P0 proof of concept).
+//
+// TEST-ONLY FILE. It is loaded explicitly by
+// firestore-tests/account-access.experimental.suite.mjs and is NOT referenced
+// by firebase.json, so `firebase deploy` never uses it. The production
+// (deployed) rules are ../firestore.rules.
+//
+// DO NOT copy these rules into firestore.rules until every Firebase Auth account
+// (Admin accounts included) has a well-formed account_access record. A missing
+// record denies all access to users / results / ai_assessments. See the M3B-1A
+// migration plan.
+//
+// Principles
+// - Deny by default: anything not explicitly allowed below is rejected.
+// - Students may only access their OWN documents in users / results /
+//   ai_assessments, and only with the exact payload shapes the app writes.
+// - Every allowed operation on those three collections also requires an
+//   active, well-formed account_access record (isActiveOwner). Disabled,
+//   deleting, deleted, missing or malformed records deny all access.
+// - Admin (custom claim `admin: true`) has NO browser access to private
+//   student collections. Admin features use FastAPI + Firebase Admin SDK
+//   (protected by `require_admin`), which bypasses these rules server-side.
+// - `programs` (incl. eligibility criteria and preparatory_guideline learning
+//   resources) is publicly readable and NOT writable from any browser client.
+//   Changes go through the Admin SDK (FastAPI / scripts/seedPrograms.js).
+// - Client-editable `role` is never used for authorization.
+//
+// Tested with the Firebase Emulator suite in firestore-tests/.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------ helpers
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function tokenEmail() {
+      return request.auth.token.get('email', null);
+    }
+
+    // The written email must be a non-empty string equal to the email claim
+    // of the caller's Firebase token. Tokens without an email claim (null)
+    // can therefore never satisfy this check.
+    function isOwnTokenEmail(value) {
+      return isNonEmptyString(value, 254) && value == tokenEmail();
+    }
+
+    function isNonEmptyString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    // Keys whose values differ between the stored and the incoming document
+    // (added, removed or modified). Unchanged fields are not included, so a
+    // full-document write that only edits allowed fields is accepted.
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ------------------------------------- account-access guard (M3B-1B-P0)
+    // account_access/{uid} is written only by the backend (Admin SDK) and can
+    // never be read or written by a browser (see its match block below).
+    //   state               'active' | 'disabled' | 'deleting' | 'deleted'
+    //   version             int >= 0, incremented by the backend
+    //   sessionsValidAfter  optional timestamp, set when an account is re-enabled
+    // A missing record, a missing or wrongly typed field, or any other field
+    // (e.g. a misspelt sessionsValidAfter) is malformed and denies access.
+    // Operation locks, audit history and bookkeeping timestamps (e.g. updatedAt)
+    // therefore belong in separate backend-only collections, not in this record.
+
+    function isWellFormedAccessRecord(data) {
+      return data.keys().hasAll(['state', 'version'])
+          && data.keys().hasOnly(['state', 'version', 'sessionsValidAfter'])
+          && data.state is string
+          && data.state in ['active', 'disabled', 'deleting', 'deleted']
+          && data.version is int
+          && data.version >= 0
+          && (!('sessionsValidAfter' in data) || data.sessionsValidAfter is timestamp);
+    }
+
+    // auth_time is the sign-in time in whole seconds since the epoch; the
+    // threshold is a timestamp with microsecond precision. A session is
+    // accepted only if
+    //   (auth_time - 1 s) >= threshold,  i.e. auth_time >= ceil(threshold) + 1.
+    // This rejects every sign-in before the threshold, including in the same
+    // second, provided auth_time is within one second of the real sign-in time
+    // (whether it was truncated, rounded or rounded up). Sign-ins less than two
+    // seconds after the threshold are also rejected: fail closed, sign in again.
+    // A missing or non-integer auth_time is rejected.
+    // The comparison is timestamp to timestamp at full precision. Do not use
+    // Timestamp.seconds() here: it returns the second within the minute (0-59),
+    // not seconds since the epoch.
+    function signedInAfter(threshold) {
+      let authTime = request.auth.token.get('auth_time', null);
+      return authTime is int
+          && timestamp.value((authTime - 1) * 1000) >= threshold;
+    }
+
+    function hasActiveAccount() {
+      let record = get(/databases/$(database)/documents/account_access/$(request.auth.uid));
+      return record != null
+          && isWellFormedAccessRecord(record.data)
+          && record.data.state == 'active'
+          && (!('sessionsValidAfter' in record.data)
+              || signedInAfter(record.data.sessionsValidAfter));
+    }
+
+    // The single gate for EVERY allow on users / results / ai_assessments.
+    // isOwner is evaluated first, so the guard document is only read for the
+    // owner's own requests.
+    function isActiveOwner(uid) {
+      return isOwner(uid) && hasActiveAccount();
+    }
+
+    // ------------------------------------------------------- users/{uid}
+    // Written by: Register.jsx (create), ProfileIngestion / ManualGradeEntry /
+    // UploadResults / DummyAI / Recommendation / PreparationPlan / Profile
+    // (update), Profile (delete). Read by the owner only.
+
+    function isValidNewUser() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'email', 'role', 'createdAt'])
+          && data.keys().hasOnly(['name', 'email', 'role', 'createdAt'])
+          && isNonEmptyString(data.name, 100)
+          && isOwnTokenEmail(data.email)
+          && data.role in ['spm_leaver', 'form_4_5']
+          && data.createdAt is timestamp;
+    }
+
+    function isValidInterests(interests) {
+      return interests is list
+          && interests.size() >= 1
+          && interests.size() <= 2
+          && isNonEmptyString(interests[0], 100)
+          && (interests.size() < 2 || isNonEmptyString(interests[1], 100));
+    }
+
+    // role, email and createdAt are immutable: they are not in the allow-list,
+    // so changing or removing them is rejected.
+    function isValidUserUpdate() {
+      let data = request.resource.data;
+      let changed = changedKeys();
+      return changed.hasOnly([
+            'name', 'chosenInterests', 'currentStep', 'hasCompletedProfile',
+            'hasUploadedResults', 'hasViewedRecommendations',
+            'hasCompletedPreparationPlan', 'updatedAt'
+          ])
+          && (!('name' in changed) || isNonEmptyString(data.name, 100))
+          && (!('chosenInterests' in changed) || isValidInterests(data.chosenInterests))
+          && (!('currentStep' in changed)
+              || (data.currentStep is int && data.currentStep >= 1 && data.currentStep <= 5))
+          && (!('hasCompletedProfile' in changed) || data.hasCompletedProfile is bool)
+          && (!('hasUploadedResults' in changed) || data.hasUploadedResults is bool)
+          && (!('hasViewedRecommendations' in changed) || data.hasViewedRecommendations is bool)
+          && (!('hasCompletedPreparationPlan' in changed) || data.hasCompletedPreparationPlan is bool)
+          && (!('updatedAt' in changed) || data.updatedAt is timestamp);
+    }
+
+    match /users/{uid} {
+      allow get: if isActiveOwner(uid);
+      allow create: if isActiveOwner(uid) && isValidNewUser();
+      allow update: if isActiveOwner(uid) && isValidUserUpdate();
+      // Existing "delete account" behaviour (Profile.jsx). Known limitations,
+      // accepted for Milestone 1.5B (to be replaced by a protected backend
+      // account-deletion process that also removes associated records):
+      // - the owner's results / ai_assessments documents are not cleaned up;
+      // - deleting and re-creating this document lets a student change their
+      //   own student type (role) and reset createdAt. It can NOT grant Admin:
+      //   create still only accepts 'spm_leaver' / 'form_4_5' and no extra
+      //   fields, and Admin access relies solely on the custom claim.
+      allow delete: if isActiveOwner(uid);
+      // list: not allowed for anyone (no browser enumeration of students).
+    }
+
+    // ----------------------------------------------------- results/{uid}
+    // Written (full overwrite) by ManualGradeEntry.jsx and UploadResults.jsx.
+    // Read by DummyAI.jsx and Recommendation.jsx.
+
+    function isValidResults(uid) {
+      let data = request.resource.data;
+      let fields = ['userId', 'email', 'results', 'updatedAt', 'status',
+                    'recordType', 'verificationMethod'];
+      return data.keys().hasAll(fields)
+          && data.keys().hasOnly(fields)
+          && data.userId == uid
+          && isOwnTokenEmail(data.email)
+          && data.results is list
+          && data.results.size() >= 1
+          && data.results.size() <= 20
+          && data.updatedAt is timestamp
+          && (
+            (data.status == 'manual_entry'
+              && data.recordType == 'PREDICTED_GRADES'
+              && data.verificationMethod == 'MANUAL_ENTRY')
+            || (data.status == 'verified'
+              && data.recordType == 'OFFICIAL_SPM_CERT'
+              && data.verificationMethod == 'AI_OCR_GEMINI')
+          );
+    }
+
+    match /results/{uid} {
+      allow get: if isActiveOwner(uid);
+      allow create, update: if isActiveOwner(uid) && isValidResults(uid);
+      // delete / list: not allowed.
+    }
+
+    // ---------------------------------------------- ai_assessments/{uid}
+    // Written (full overwrite) by DummyAI.jsx. Read by Recommendation.jsx.
+
+    function isValidAssessment(uid) {
+      let data = request.resource.data;
+      let fields = ['userId', 'userRole', 'academicSnapshot', 'answers',
+                    'scoresByPathway', 'completedAt', 'isDemoMode'];
+      return data.keys().hasAll(fields)
+          && data.keys().hasOnly(fields)
+          && data.userId == uid
+          && isNonEmptyString(data.userRole, 50)
+          && data.academicSnapshot is list
+          && data.academicSnapshot.size() <= 20
+          && data.answers is list
+          && data.answers.size() >= 1
+          && data.answers.size() <= 20
+          && data.scoresByPathway is map
+          && data.scoresByPathway.size() <= 20
+          && data.completedAt is timestamp
+          && data.isDemoMode is bool;
+    }
+
+    match /ai_assessments/{uid} {
+      allow get: if isActiveOwner(uid);
+      allow create, update: if isActiveOwner(uid) && isValidAssessment(uid);
+      // delete / list: not allowed.
+    }
+
+    // ---------------------------------------------- account_access/{uid}
+    // Backend-only (Admin SDK). No browser client - student, Admin custom
+    // claim or signed out - may read, list or write any record, its own
+    // included. The catch-all below already denies this; the explicit rule
+    // documents the intent.
+
+    match /account_access/{uid} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------- programs/{programId}
+    // Public catalogue (AllPrograms is reachable while signed out). Includes
+    // eligibility criteria and preparatory_guideline learning resources.
+    // No browser writes for anyone, including Admin custom-claim users.
+
+    match /programs/{programId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Any other collection or sub-collection is denied by default (no
+    // matching allow rule). This explicit rule documents that intent; it
+    // cannot widen access because rules only ever grant permissions.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
