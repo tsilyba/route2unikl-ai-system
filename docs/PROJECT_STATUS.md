@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 24 November 2026 (MYT): M3B-1B-P0 experimental Firestore account-access guard, an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 24 November 2026 (MYT): M3B-1B-P1-A Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -16,9 +16,10 @@ Every status claim in this document uses one of these labels.
 | Label | Meaning |
 |---|---|
 | **Repo-verified** | Implementation confirmed by reading the source code in this repository. |
-| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`). |
+| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`, `test_firebase_config.py`). |
 | **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/**/*.test.js` (run with `node --test "src/**/*.test.js"` in `frontend/`; synthetic data, no browser, Firebase or network). |
 | **Emulator tests** | Covered by the Firestore rules suite in `firestore-tests/` (local emulator, `demo-route2unikl`). |
+| **Emulator integration tests** | Covered by `backend/integration_tests/`: the backend against the local Firebase Authentication and Firestore emulators (`demo-route2unikl`), run with a separate command (section 8 G). Emulator results are not production evidence. |
 | **Browser smoke test** | Exercised manually in the real app: local React dev server connected to production Firebase. Owner-reported. |
 | **Console** | Checked in the Firebase Console. Owner-reported. |
 | **Rules Playground** | Simulated in the Firebase Console Rules Playground. A rules simulation, not an application test. Owner-reported. |
@@ -58,6 +59,7 @@ Every status claim in this document uses one of these labels.
 | `GET /api/auth/me`, `GET /api/admin/verify` | `backend/routes/auth_check.py` | Unit tests; `/api/admin/verify` is called by `AdminLayout` (M2); `/api/auth/me` is not used by the frontend |
 | Frontend `authFetch` and auth error panel | `frontend/src/utils/apiClient.js`, `frontend/src/components/ApiAuthErrorPanel.jsx` | Repo-verified |
 | Firestore Security Rules | [`firestore.rules`](../firestore.rules) | Emulator tests; deployed to production (owner-reported) |
+| Firebase emulator mode for local development and tests (Authentication and Firestore emulators, `demo-` project, loopback only; production mode refuses emulator settings); configuration recorded at initialization and re-checked before and after every token verification | `backend/core/firebase.py`, `backend/core/auth.py`, `firebase.json` | Repo-verified; Unit tests; Emulator integration tests (section 8 G) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
 Apart from the shared grade-validation helper and the Admin navigation, verification, Manage Users and
@@ -77,6 +79,7 @@ AI output quality or OCR accuracy.
 | M2 — Admin Dashboard & Sidebar | `9e75a38` | 23 Nov 2026 | 14 | Separate admin layout, fixed sidebar, mobile navigation, logout; server confirmation via the existing `GET /api/admin/verify`; dashboard with module overview (M3–M7 disabled) and access status; 22 frontend unit tests. No backend, rules or dependency changes. |
 | M3A — Manage Users (read-only) | `4905ac0` | 23 Nov 2026 | 15 | `GET /api/admin/users` and `GET /api/admin/users/{uid}` (`require_admin`, Admin SDK, allow-listed responses); Manage Users list and User Details pages (on an expired session or unconfirmed access, the login page opens only after sign-out succeeds; a failed sign-out shows an error and a retry); 37 new backend tests and 24 new frontend unit tests (navigation tests updated). No account actions, rules or dependency changes. M3B (account actions) deferred. |
 | Admin sign-out hardening | `69bcc07` | 23 Nov 2026 | 7 | Automatic sign-out after an ended session (`AdminLayout` on HTTP 401 from `/api/admin/verify`; `ProtectedAdminRoute` on invalid-session error codes) no longer ignores a failed Firebase sign-out: the login page opens only after sign-out succeeds; a failure keeps the admin area blocked and shows "Couldn't sign you out" with "Try signing out again". Shared helper `frontend/src/utils/signOutFlow.js` (also used by M3A): overlapping sign-outs share one attempt; callbacks of superseded attempts, stale verifications and unmounted components are ignored. 18 new frontend unit tests. Manual logout, student redirects, backend, rules and dependencies unchanged. |
+| M3B-1B-P0 — Experimental Firestore account-access guard | `d646700` | 24 Nov 2026 | 5 | Guard in the test-only `firestore-tests/account-access.experimental.rules`; shared rules-test harness; experimental suite of 100 tests (the original 44 plus 56 guard tests). Production `firestore.rules` unchanged and not deployed (section 8 F). |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -98,6 +101,11 @@ Recorded test results (not re-run for this documentation baseline):
   `firestore.rules`) — 44/44 passed; experimental suite (explicit command, see section 8 F) — 100/100
   passed; mutation testing — see section 8 F. Backend and frontend tests were not re-run (no backend or
   frontend changes).
+- **M3B-1B-P1-A (local emulator foundation, with the runtime configuration check):** backend tests — 94
+  tests, `OK` (the existing 63 and 31 new Firebase configuration tests); emulator integration tests
+  (separate command, section 8 G) — 14 tests, `OK`; frontend unit tests — 84 passed; Firestore rules —
+  44/44 (production) and 100/100 (experimental); configuration mutation check — 17 of 17 weakened copies
+  detected.
 
 ## 3. Repository status at baseline
 
@@ -264,8 +272,9 @@ Start M3B only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE
 ## 8. Admin Module — Fail-Closed Security & Testing Register
 
 A living technical record of the security behaviour of the completed Admin milestones (M1, M1.5A,
-M1.5B, M2, M3A and the Admin sign-out hardening), and of the experimental, **undeployed** M3B-1B-P0
-account-access guard (section F), based on the repository code and the recorded test results. It is
+M1.5B, M2, M3A and the Admin sign-out hardening), of the experimental, **undeployed** M3B-1B-P0
+account-access guard (section F) and of the M3B-1B-P1-A local emulator foundation (section G), based on
+the repository code and the recorded test results. It is
 **not** the final Development and Testing Report. Last recorded: 24 November 2026 (MYT).
 
 "Fail-closed" means that any failure to confirm identity or Admin status leaves the Admin area and
@@ -280,6 +289,8 @@ Admin data unavailable. Frontend checks only decide what is displayed. Data is p
 - **Emulator mutation**: the experimental suite re-run in the emulator against deliberately weakened
   copies of the experimental rules; a weakening counts as detected when tests fail (M3B-1B-P0 only; the
   scripts are not stored in the repository).
+- **Emulator integration**: backend tests in `backend/integration_tests/` against the local Firebase
+  Authentication and Firestore emulators (M3B-1B-P1-A).
 - **Manual**: owner-reported browser verification. Results are recorded per milestone; individual steps,
   screenshots and logs are not stored in the repository.
 - **Code inspection**: confirmed by reading the source only.
@@ -331,11 +342,13 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 
 | Evidence | Scope | Latest recorded result |
 |---|---|---|
-| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37) | 63 tests, `OK` |
+| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31) | 94 tests, `OK` |
+| Backend emulator integration tests (M3B-1B-P1-A) | `backend/integration_tests/test_auth_emulator.py` against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 14 tests, `OK` |
 | Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18) | 84/84 passed |
 | Firestore emulator tests (production rules) | `firestore-tests/rules.test.mjs` against `firestore.rules`, run by `npm test` (12 suites, defined in `shared-rules-suite.mjs`) | 44/44 passed |
 | Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) | 100/100 passed |
 | Mutation testing (experimental, M3B-1B-P0) | The experimental suite re-run against deliberately weakened copies of the experimental rules (section F) | 19 of 20 weakenings detected; the undetected one removes a redundant check |
+| Mutation testing (configuration, M3B-1B-P1-A) | `test_firebase_config.py` re-run against deliberately weakened copies of `backend/core/firebase.py` and `backend/core/auth.py` (section G) | 17 of 17 weakenings detected |
 | Frontend build and lint | Production build; lint of the changed files with zero warnings allowed | Passed (pre-existing project-wide lint issues: see E6) |
 | Manual (owner-reported) | M3A Manage Users browser verification | 10/10 |
 | Manual (owner-reported) | Admin sign-out hardening browser regression checks | 5/5 |
@@ -366,8 +379,8 @@ This register does not claim that every edge case is resolved.
 
 ### F. M3B-1B-P0 — Experimental Firestore Account-Access Guard
 
-> **Status: experimental proof of concept, NOT deployed.** The production rules file `firestore.rules`
-> is unchanged (byte-identical to `69bcc07`), and production Firestore has no account-access guard. The
+> **Status: experimental proof of concept (committed in `d646700`), NOT deployed.** The production rules
+> file `firestore.rules` is unchanged (byte-identical to `69bcc07`), and production Firestore has no account-access guard. The
 > results below come from the local emulator (`demo-route2unikl`) with mock tokens. None of them is a
 > production security guarantee.
 
@@ -442,6 +455,84 @@ states neither the range of `seconds()` nor the precision of timestamp compariso
 | FL7 | Firebase does not document the ordering between a rules check and a simultaneous change to the record; a write made just before an account is disabled may still be saved. The emulator tests include no concurrency testing. | Security limitation (residual) | Not yet tested. |
 | FL8 | The guard does not apply to the FastAPI backend, which uses the Admin SDK (rules do not apply) and relies on its own token checks (section A). | Boundary (by design) | — |
 | FL9 | The emulator is not production: rules-engine details, token contents, billing and latency may differ. | Test-coverage gap | Open. |
+
+### G. M3B-1B-P1-A — Firebase Authentication Emulator Foundation
+
+> **Status: local development and test infrastructure, plus configuration hardening of the backend's
+> Firebase initialisation and token verification (G1, G2, G7, G8).** Token verification itself, `check_revoked=True`,
+> the error mapping and `require_admin` are unchanged. No deployment, production data, real account or
+> custom claim was involved. Emulator results are not production evidence.
+
+**Purpose.** Account-management work (M3B) must be developed and tested without touching real accounts.
+P1-A adds the Firebase Authentication emulator next to the existing Firestore emulator, adds an explicit
+backend emulator mode, and tests the existing backend authentication against emulator-created accounts.
+
+**Configuration.** `backend/core/firebase.py` selects the mode with `ROUTE2UNIKL_FIREBASE_MODE`:
+
+| Setting | Production mode (default) | Emulator mode |
+|---|---|---|
+| `ROUTE2UNIKL_FIREBASE_MODE` | Unset or `production` | `emulator`. Any other value is refused. |
+| `ROUTE2UNIKL_EMULATOR_PROJECT_ID` | Must not be set | Required: a `demo-` project ID, for example `demo-route2unikl` |
+| `FIREBASE_AUTH_EMULATOR_HOST`, `FIRESTORE_EMULATOR_HOST` | Must not be set | Both required: a loopback `host:port` (`127.0.0.1`, `localhost` or `[::1]`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Not checked (unchanged) | Must not be set |
+| `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT` | Not checked (unchanged) | If set, must equal the emulator project ID |
+| Credential | `backend/serviceAccountKey.json` (unchanged) | An anonymous emulator credential: no key file, no application-default credentials |
+
+`firebase.json` adds the Authentication emulator on `127.0.0.1:9099`; the Firestore emulator stays on
+`127.0.0.1:8080`. The emulator integration tests are run from `backend/` with:
+
+```
+firebase emulators:exec --only auth,firestore --project demo-route2unikl --config ../firebase.json ".venv\Scripts\python.exe -m unittest discover -s integration_tests -t . -v"
+```
+
+They are kept outside `backend/tests/`, so the default backend command never needs or starts an emulator.
+
+**Running the backend against the emulators** (local only): set the emulator-mode variables above and
+start the server bound to the loopback interface, for example `uvicorn main:app --host 127.0.0.1 --port 8000`
+(127.0.0.1 is uvicorn's default; never `--host 0.0.0.0`). An emulator-mode backend accepts forged tokens
+(GL2), so it must not be reachable from other machines.
+
+**Token verification: emulator versus production.** In production mode the Admin SDK checks the token's
+RS256 signature against Google's keys, its key ID, expiry, audience, issuer and subject, and then, with
+`check_revoked=True`, the account's disabled state and revocation time. In emulator mode the SDK skips the
+signature and expiry checks; audience, issuer, subject, disabled state and revocation are still checked,
+against the emulator. The real production verifier is exercised offline by a unit test that rejects
+unsigned, wrong-algorithm and wrong-project tokens before any network request.
+
+| # | Protection | Implementation | Evidence |
+|---|---|---|---|
+| G1 | Production initialisation | With the mode unset or `production`, the first initialisation loads the same key file and initialises the app exactly as before. Later calls validate and reuse the app this module created without reloading the key; an app created elsewhere in the process is refused (G7). | Backend unit; Code inspection |
+| G2 | Production mode refuses emulator settings | The Admin SDK reads `FIREBASE_AUTH_EMULATOR_HOST` and `FIRESTORE_EMULATOR_HOST` itself, and while the Auth variable is set it skips ID-token signature and expiry checks. Production mode therefore raises `FirebaseConfigError` if either host or the emulator project variable is present, before loading the key. Token verification then answers 503 `AUTH_SERVICE_UNAVAILABLE` without verifying any token. | Backend unit (every emulator setting, with and without an explicit `production` mode; 503 through the real `get_current_user`); Emulator integration (test 10; the limitation test shows a forged token being accepted when the variable is set) |
+| G3 | Emulator mode accepts only a complete, isolated configuration | Requires a `demo-` project and loopback hosts for both emulators; refuses application-default credentials, a conflicting Google project, an unknown mode and an existing non-emulator app. Any failure raises; there is no fallback to production. Error messages and logs name variables, never their values. | Backend unit; Emulator integration (test 10: five invalid configurations → 503, no app created, no request made); configuration mutation check (17 of 17 weakenings detected, covering G2, G3, G7 and G8; scratch scripts, not stored in the repository) |
+| G4 | No real credentials or production project in emulator mode | Anonymous credential; the test run replaces the key loader with one that fails if called; the app's project is the `demo-` project; the Firestore client uses the emulator host; every recorded HTTP request went to a loopback address. | Emulator integration (test 9, plus a check of all request hosts when the run ends) |
+| G5 | Emulators bound to loopback only | `firebase.json` hosts are `127.0.0.1`. One check during a scratch run showed every emulator socket listening on `127.0.0.1` (the emulator hub also on `[::1]`). | Code inspection (`firebase.json`); one observation during a scratch run, not stored in the repository |
+| G6 | Existing backend authentication behaves as expected against the Auth emulator | New account signed in through the emulator → `/api/auth/me` 200. Missing, malformed, wrong-project or unknown-account tokens → 401. Student or string `"true"` claim → 403 on `/api/admin/verify` and both Manage Users endpoints. `admin: true` (new token) → 200, and Manage Users lists emulator accounts with their Firestore-emulator profiles; a token issued before the claim was set → 403. Disabled → 403 "This account has been disabled.", and sign-in and token refresh fail. Deleted → 401 "Account not found", and sign-in fails. Revoked → tokens issued before the revocation → 401 "Session revoked"; a new sign-in → 200. | Emulator integration (tests 1–8) |
+| G7 | Immutable record of the initialised configuration | The first successful `initialize_firebase()` records a frozen `FirebaseConfig` (mode, project ID, Auth and Firestore emulator hosts in emulator mode, credential type) and the app it created. Nothing is recorded until the app, its project and the Firestore client are all confirmed; a failure after the app was created removes that app, so a retry starts clean. The record is never overwritten: re-creating a removed app (for example in tests) requires the same configuration, including the same production project. Later `initialize_firebase()` calls accept only the recorded app under a matching environment; an app created elsewhere, a replaced app or a credential of the wrong type is refused. | Backend unit (lifecycle: failed initialisation and retry, repeated initialisation, re-creation after removal, immutability, external and replaced apps, credential mismatch); Emulator integration (test 9 checks the record; test 10 re-creates the app after removal) |
+| G8 | Configuration re-checked before and after every token verification | `get_current_user` calls `check_runtime_configuration()` before verifying the token and again before accepting the verified identity. It fails if the mode, project, either emulator host or the credential type differs from the record, if production mode sees any emulator setting, if emulator settings are missing or invalid, or if the app is missing or not the recorded one. Before verification, a failure means the token is never verified; after verification, the verified identity is discarded. Both answer 503 `AUTH_SERVICE_UNAVAILABLE`; logs contain only the exception type. `/api/auth/me`, `/api/admin/verify` and both Manage Users endpoints are covered, because `require_admin` depends on `get_current_user`. Valid configurations still authenticate, and Admin claims are still enforced. | Backend unit (mismatch on all four endpoints without verification; a change during verification rejected; valid configurations and Admin claims); Emulator integration (test 11: seven changes after initialisation → 503 on student and Admin endpoints, verification never called, 200 again once restored; test 12: a change during real emulator verification → 503) |
+
+**Emulator behaviour that differs from production or is unverified there** (asserted by two limitation
+tests and the re-enable test, so that a change is noticed):
+
+- Emulator ID tokens are unsigned (`alg: none`). With `FIREBASE_AUTH_EMULATOR_HOST` set, the Admin SDK
+  accepts a forged token for an existing emulator account, including one claiming `admin: true`.
+- Disabling and re-enabling an account does not change its revocation time in the emulator: after
+  re-enabling, the old ID token is accepted again until refresh tokens are revoked. Account actions must
+  revoke tokens when re-enabling (as in the M3B-1A design).
+- After revocation, the emulator still exchanges the old refresh token for new ID tokens; Firebase
+  documents that revocation ends refresh tokens in production.
+
+**Limitations and pending work**
+
+| # | Limitation | Type | Status |
+|---|---|---|---|
+| GL1 | Emulator results do not prove production behaviour (token signing, expiry, refresh-token revocation and re-enable semantics differ or are unverified). The production initialisation path was tested only with a fake credential: start-up with the real service-account key, and verification of real signed tokens, were not exercised (no production access was authorised). | Test-coverage gap | Open |
+| GL2 | Emulator mode accepts forged tokens by design of the emulator. It must never be used with real data; the loopback hosts, the `demo-` project and the production refusal (G2) keep it local. | Security limitation (by design) | Accepted for local development |
+| GL3 | Process-environment race: the Admin SDK reads `FIREBASE_AUTH_EMULATOR_HOST` inside each verification, and Python cannot lock the process environment. A change made after the first check and undone before the second can still affect that one verification without being detected. The two checks (G8) close every other ordering. Nothing in the code changes these variables at run time (`backend/.env` is loaded at import, before initialisation). | Security limitation (residual) | Open; accepted (see GL7) |
+| GL4 | A misconfigured server still starts (`main.py` prints the error) and answers 503 on authenticated routes instead of refusing to start. | Operations | Deferred by owner decision (24 Nov 2026); `main.py` unchanged |
+| GL5 | The React app is not connected to the emulators: it still uses production Firebase, and an emulator-mode backend rejects production tokens (wrong project). Browser testing against the emulators needs a frontend emulator switch. | Future development task | Pending (separate approval) |
+| GL6 | The 14 integration tests need the Firebase CLI and run with a separate command, manually (no CI). The `CLAUDE.md` commands table does not list the command, and each run leaves an untracked `backend/firestore-debug.log` (not covered by `.gitignore`), which must be deleted afterwards and never staged. | Test-process gap | Deferred by owner decision (24 Nov 2026): no `CLAUDE.md`, `.gitignore` or new ignore-file change |
+| GL7 | These checks are configuration hardening against misconfiguration and accidental environment changes. They are not protection against a compromised backend process: code running inside the process can change the environment, the recorded configuration or the checks themselves. | Security limitation (by design) | Accepted |
+| GL8 | A local emulator-mode backend must be bound to `127.0.0.1` (see "Running the backend against the emulators"). The code cannot enforce how the server is started. | Operations | Documented |
 
 ### Future Admin Module report
 

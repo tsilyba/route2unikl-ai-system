@@ -11,6 +11,12 @@ Firebase ID-token authentication and authorization dependencies for FastAPI.
 Identity always comes from the verified token; client-supplied user IDs are
 never trusted for authorization. Tokens and exception details are never
 logged or returned to clients.
+
+Before and after every token verification, the Firebase configuration is
+checked against the one recorded at initialization (see core.firebase). The
+Admin SDK reads FIREBASE_AUTH_EMULATOR_HOST during verification and, while it
+is set, skips signature checks; a mismatch therefore answers 503 and no
+identity is accepted.
 """
 import logging
 from dataclasses import dataclass
@@ -22,7 +28,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth as firebase_auth
 from firebase_admin import exceptions as firebase_exceptions
 
-from core.firebase import initialize_firebase
+from core.firebase import check_runtime_configuration, initialize_firebase
 
 logger = logging.getLogger("auth")
 
@@ -68,12 +74,19 @@ def _service_unavailable() -> HTTPException:
     )
 
 
-def _ensure_firebase_app() -> None:
-    """Reuse the app created by core.firebase; initialize it only if missing."""
-    try:
-        firebase_admin.get_app()
-    except ValueError:
-        initialize_firebase()
+def _ensure_firebase_app(initialize_if_missing: bool = True) -> None:
+    """Confirm that Firebase is usable under the configuration it was initialized with.
+
+    Reuses the app created by core.firebase (initializing it only if missing and
+    `initialize_if_missing`), then checks that the current environment still
+    matches the recorded configuration. Raises if it does not.
+    """
+    if initialize_if_missing:
+        try:
+            firebase_admin.get_app()
+        except ValueError:
+            initialize_firebase()
+    check_runtime_configuration()
 
 
 def get_current_user(
@@ -127,6 +140,14 @@ def get_current_user(
     except Exception as exc:
         # Any other failure to complete verification: fail closed, never authenticate.
         logger.error("Unexpected token verification failure: %s", type(exc).__name__)
+        raise _service_unavailable() from None
+
+    # The SDK read the emulator settings during verification: accept the identity
+    # only if the configuration is still the recorded one.
+    try:
+        _ensure_firebase_app(initialize_if_missing=False)
+    except Exception as exc:
+        logger.error("Firebase configuration changed during token verification: %s", type(exc).__name__)
         raise _service_unavailable() from None
 
     return AuthenticatedUser(
