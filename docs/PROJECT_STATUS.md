@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 24 November 2026 (MYT): M3B-1B-P1-B1 backend account-access service for `account_access/{uid}` records, backend-only, not connected to any route, registration or login, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 24 November 2026 (MYT): M3B-1B-P1-B2A trusted backend registration, **local emulator testing only**, not mounted, frontend not integrated, **not deployed** ([section 8 I](#i-m3b-1b-p1-b2a--trusted-backend-registration-emulator-only)); P1-B2B and P1-B2C pending. M3B-1B-P1-B1 (`6e3675f`) backend account-access service for `account_access/{uid}` records, backend-only, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -16,7 +16,7 @@ Every status claim in this document uses one of these labels.
 | Label | Meaning |
 |---|---|
 | **Repo-verified** | Implementation confirmed by reading the source code in this repository. |
-| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`, `test_firebase_config.py`, `test_account_access_service.py`). |
+| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`, `test_firebase_config.py`, `test_account_access_service.py`, `test_registration.py`). |
 | **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/**/*.test.js` (run with `node --test "src/**/*.test.js"` in `frontend/`; synthetic data, no browser, Firebase or network). |
 | **Emulator tests** | Covered by the Firestore rules suite in `firestore-tests/` (local emulator, `demo-route2unikl`). |
 | **Emulator integration tests** | Covered by `backend/integration_tests/`: the backend against the local Firebase Authentication and Firestore emulators (`demo-route2unikl`), run with a separate command (section 8 G). Emulator results are not production evidence. |
@@ -60,7 +60,8 @@ Every status claim in this document uses one of these labels.
 | Frontend `authFetch` and auth error panel | `frontend/src/utils/apiClient.js`, `frontend/src/components/ApiAuthErrorPanel.jsx` | Repo-verified |
 | Firestore Security Rules | [`firestore.rules`](../firestore.rules) | Emulator tests; deployed to production (owner-reported) |
 | Firebase emulator mode for local development and tests (Authentication and Firestore emulators, `demo-` project, loopback only; production mode refuses emulator settings); configuration recorded at initialization and re-checked before and after every token verification | `backend/core/firebase.py`, `backend/core/auth.py`, `firebase.json` | Repo-verified; Unit tests; Emulator integration tests (section 8 G) |
-| Account-access service (backend-only; not connected to any route, registration or login): validates, reads and inspects `account_access/{uid}` records and creates one only if none exists, with the state taken from Firebase Authentication | `backend/services/account_access_service.py` | Repo-verified; Unit tests; Emulator integration tests (section 8 H) |
+| Account-access service (backend-only; its only caller is the emulator-only registration below): validates, reads and inspects `account_access/{uid}` records and creates one only if none exists, with the state taken from Firebase Authentication | `backend/services/account_access_service.py` | Repo-verified; Unit tests; Emulator integration tests (section 8 H) |
+| Trusted backend registration (**local emulator testing only**; router not mounted by `main.py`, 404 outside emulator mode; the frontend still registers in the browser): creates the Auth account with the Admin SDK, then the `users/{uid}` profile, then the active access record | `backend/services/registration_service.py`, `backend/routes/registration.py` | Repo-verified; Unit tests; Emulator integration tests (section 8 I) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
 Apart from the shared grade-validation helper and the Admin navigation, verification, Manage Users and
@@ -82,6 +83,7 @@ AI output quality or OCR accuracy.
 | Admin sign-out hardening | `69bcc07` | 23 Nov 2026 | 7 | Automatic sign-out after an ended session (`AdminLayout` on HTTP 401 from `/api/admin/verify`; `ProtectedAdminRoute` on invalid-session error codes) no longer ignores a failed Firebase sign-out: the login page opens only after sign-out succeeds; a failure keeps the admin area blocked and shows "Couldn't sign you out" with "Try signing out again". Shared helper `frontend/src/utils/signOutFlow.js` (also used by M3A): overlapping sign-outs share one attempt; callbacks of superseded attempts, stale verifications and unmounted components are ignored. 18 new frontend unit tests. Manual logout, student redirects, backend, rules and dependencies unchanged. |
 | M3B-1B-P0 — Experimental Firestore account-access guard | `d646700` | 24 Nov 2026 | 5 | Guard in the test-only `firestore-tests/account-access.experimental.rules`; shared rules-test harness; experimental suite of 100 tests (the original 44 plus 56 guard tests). Production `firestore.rules` unchanged and not deployed (section 8 F). |
 | M3B-1B-P1-A — Firebase Authentication emulator foundation | `7ec0ecb` | 24 Nov 2026 | 7 | Authentication emulator on `127.0.0.1:9099`; explicit backend emulator mode (`demo-` project, loopback hosts, anonymous credential); production mode refuses emulator settings; immutable record of the initialised configuration, re-checked before and after every token verification (503 on mismatch); 31 new backend unit tests and 14 emulator integration tests (section 8 G). |
+| M3B-1B-P1-B1 — Backend account-access record service | `6e3675f` | 24 Nov 2026 | 4 | Backend-only service that validates, reads and inspects `account_access/{uid}` records and creates one only if none exists (atomic create, state from Firebase Authentication, never overwrites); no route; 23 new backend unit tests and 9 emulator integration tests (section 8 H). |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -113,6 +115,11 @@ Recorded test results (not re-run for this documentation baseline):
   new); frontend unit tests — 84 passed; Firestore rules — 44/44 (production) and 100/100 (experimental);
   the emulator concurrency test repeated 10 times (scratch run) — one record created per run, no
   unconfirmed outcome.
+- **M3B-1B-P1-B2A (trusted backend registration, emulator only):** backend tests — 141 tests, `OK` (the
+  existing 117 and 24 new registration tests); emulator integration tests — 36 tests, `OK` (the existing
+  23 and 13 new); frontend unit tests — 84 passed; Firestore rules — 44/44 (production) and 100/100
+  (experimental); the registration module repeated 3 times and run in reverse module order (scratch run,
+  before the final audit added one test) — all passed.
 
 ## 3. Repository status at baseline
 
@@ -281,8 +288,8 @@ Start M3B only at step 1 (inspect and plan) of the milestone workflow in [CLAUDE
 A living technical record of the security behaviour of the completed Admin milestones (M1, M1.5A,
 M1.5B, M2, M3A and the Admin sign-out hardening), of the experimental, **undeployed** M3B-1B-P0
 account-access guard (section F), of the M3B-1B-P1-A local emulator foundation (section G) and of the
-backend-only M3B-1B-P1-B1 account-access service (section H), based on the repository code and the
-recorded test results. It is
+backend-only M3B-1B-P1-B1 account-access service (section H) and of the emulator-only M3B-1B-P1-B2A
+trusted registration (section I), based on the repository code and the recorded test results. It is
 **not** the final Development and Testing Report. Last recorded: 24 November 2026 (MYT).
 
 "Fail-closed" means that any failure to confirm identity or Admin status leaves the Admin area and
@@ -350,8 +357,8 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 
 | Evidence | Scope | Latest recorded result |
 |---|---|---|
-| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23) | 117 tests, `OK` |
-| Backend emulator integration tests (M3B-1B-P1-A, P1-B1) | `backend/integration_tests/`: `test_auth_emulator.py` (14) and `test_account_access_service.py` (9) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 23 tests, `OK` |
+| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23), `test_registration.py` (24) | 141 tests, `OK` |
+| Backend emulator integration tests (M3B-1B-P1-A, P1-B1, P1-B2A) | `backend/integration_tests/`: `test_auth_emulator.py` (14), `test_account_access_service.py` (9) and `test_registration_emulator.py` (13) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 36 tests, `OK` |
 | Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18) | 84/84 passed |
 | Firestore emulator tests (production rules) | `firestore-tests/rules.test.mjs` against `firestore.rules`, run by `npm test` (12 suites, defined in `shared-rules-suite.mjs`) | 44/44 passed |
 | Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) | 100/100 passed |
@@ -538,14 +545,15 @@ tests and the re-enable test, so that a change is noticed):
 | GL3 | Process-environment race: the Admin SDK reads `FIREBASE_AUTH_EMULATOR_HOST` inside each verification, and Python cannot lock the process environment. A change made after the first check and undone before the second can still affect that one verification without being detected. The two checks (G8) close every other ordering. Nothing in the code changes these variables at run time (`backend/.env` is loaded at import, before initialisation). | Security limitation (residual) | Open; accepted (see GL7) |
 | GL4 | A misconfigured server still starts (`main.py` prints the error) and answers 503 on authenticated routes instead of refusing to start. | Operations | Deferred by owner decision (24 Nov 2026); `main.py` unchanged |
 | GL5 | The React app is not connected to the emulators: it still uses production Firebase, and an emulator-mode backend rejects production tokens (wrong project). Browser testing against the emulators needs a frontend emulator switch. | Future development task | Pending (separate approval) |
-| GL6 | The emulator integration tests (14 in P1-A, 23 since P1-B1) need the Firebase CLI and run with a separate command, manually (no CI). The `CLAUDE.md` commands table does not list the command, and each run leaves an untracked `backend/firestore-debug.log` (not covered by `.gitignore`), which must be deleted afterwards and never staged. | Test-process gap | Deferred by owner decision (24 Nov 2026): no `CLAUDE.md`, `.gitignore` or new ignore-file change |
+| GL6 | The emulator integration tests (14 in P1-A, 23 since P1-B1, 36 since P1-B2A) need the Firebase CLI and run with a separate command, manually (no CI). The `CLAUDE.md` commands table does not list the command, and each run leaves an untracked `backend/firestore-debug.log` (not covered by `.gitignore`), which must be deleted afterwards and never staged. | Test-process gap | Deferred by owner decision (24 Nov 2026): no `CLAUDE.md`, `.gitignore` or new ignore-file change |
 | GL7 | These checks are configuration hardening against misconfiguration and accidental environment changes. They are not protection against a compromised backend process: code running inside the process can change the environment, the recorded configuration or the checks themselves. | Security limitation (by design) | Accepted |
 | GL8 | A local emulator-mode backend must be bound to `127.0.0.1` (see "Running the backend against the emulators"). The code cannot enforce how the server is started. | Operations | Documented |
 
 ### H. M3B-1B-P1-B1 — Backend Account-Access Service
 
-> **Status: backend-only service, not connected to any route, registration, login or migration, and
-> not deployed.** Nothing calls it outside the tests. It ran only against in-memory fakes and the local
+> **Status: committed in `6e3675f`. Backend-only service, not connected to login, migration or any
+> mounted route, and not deployed.** Its only caller is the emulator-only registration of section I
+> (P1-B2A), whose router is not mounted. It ran only against in-memory fakes and the local
 > emulators (`demo-route2unikl`); no real account, custom claim or Firestore document was read or written.
 
 **Purpose.** The experimental guard (section F) needs an `account_access/{uid}` record for every account.
@@ -572,7 +580,7 @@ timestamp. Locks, audit history and other operational data are kept out of this 
 | H4 | Concurrent and duplicate requests | Exactly one request creates the record; every other one reports the stored record with `created = false`. Firestore refuses a competing create either with "already exists" or with "aborted" (write contention), and both are handled by reading the stored record. If nothing is stored after such a refusal, the outcome is reported as unconfirmed. | Backend unit (16 threads; both refusal kinds); Emulator integration (test 7: 8 concurrent requests). A scratch run repeated test 7 ten times: 10 records created (one per run), 24 "already exists" and 46 "aborted" refusals, none unconfirmed. |
 | H5 | Failures are never reported as success | `activated` is true only for a newly created `active` record whose Auth account was still enabled when checked again after the write. Errors use fixed codes: `FIREBASE_UNAVAILABLE` (initialisation or configuration), `AUTH_UNAVAILABLE`, and `STORE_UNAVAILABLE` (Firestore unavailable, a failed write, or a write whose outcome is unknown; retrying is safe because nothing is overwritten). An Auth change during provisioning (disabled, deleted or unverifiable) is reported as an inconsistency, not as an activation; the record that was written is not corrected (HL2). | Backend unit |
 | H6 | Inconsistencies detected, never repaired | `inspect_account` reports: missing or malformed record; Auth account missing; Auth disabled but record active; Auth enabled but record disabled; deletion in progress; record deleted while the Auth account exists. Inspection never writes. | Backend unit (every combination); Emulator integration (test 8: account disabled, then deleted, in Auth after provisioning) |
-| H7 | No public endpoint; private data not logged | Neither `main.py` nor any route references the service (checked by a test). Logs contain the uid, codes and exception types only; an error's message is its code. Email addresses, tokens and academic data are never logged. | Backend unit |
+| H7 | No public endpoint; private data not logged | Neither `main.py` nor any route references the service directly (checked by a test). Since P1-B2A, `registration_service.py` calls it, through a router that `main.py` does not mount and that answers 404 outside emulator mode (section I). Logs contain the uid, codes and exception types only; an error's message is its code. Email addresses, tokens and academic data are never logged. | Backend unit |
 | H8 | Emulator only | The section G harness: loopback hosts, `demo-` project, the key loader fails if called, every HTTP request on loopback. | Emulator integration (test 9) |
 
 **Missing records.** A missing record is never treated as permission to activate an account.
@@ -590,7 +598,7 @@ let any enabled account without a record (for example one whose record was lost)
 
 | Topic | Options | Recommendation |
 |---|---|---|
-| New registrations | (a) Backend-mediated registration: the browser sends the registration to a FastAPI endpoint that creates the Auth account with the Admin SDK and then provisions the record, so the evidence comes from the server. Needs rate limiting, input validation, a consistent "email already in use" response and a decision on handling the password on the server. (b) A Cloud Functions trigger on Auth account creation; new infrastructure, outside the current architecture. (c) A self-provisioning endpoint limited to very recently created accounts (Auth creation time and the token's `auth_time` within a short window, and no record ever stored): a heuristic, not proof. | (a), for server-side evidence within the current architecture; owner decision. |
+| New registrations | (a) Backend-mediated registration: the browser sends the registration to a FastAPI endpoint that creates the Auth account with the Admin SDK and then provisions the record, so the evidence comes from the server. Needs rate limiting, input validation, a consistent "email already in use" response and a decision on handling the password on the server. (b) A Cloud Functions trigger on Auth account creation; new infrastructure, outside the current architecture. (c) A self-provisioning endpoint limited to very recently created accounts (Auth creation time and the token's `auth_time` within a short window, and no record ever stored): a heuristic, not proof. | (a), for server-side evidence within the current architecture; owner decision. Implemented for emulator testing only in P1-B2A (section I). |
 | Existing accounts | A server-only backfill that calls `provision_access_record` for every Auth account, with a dry-run mode and separate approval before any production write (M3B-1A migration plan). | As planned. |
 | Login | Report a missing record (for monitoring) without creating one. | Never create a record from login. |
 | Self-delete | `Profile.jsx` still deletes from the browser and does not touch the record (FL6). | Move to the backend with M3B. |
@@ -600,11 +608,112 @@ let any enabled account without a record (for example one whose record was lost)
 
 | # | Limitation | Type | Status |
 |---|---|---|---|
-| HL1 | Not connected: no registration, login or migration path calls the service, and the guard is not deployed, so P1-B1 changes nothing in production. | Future development task | Pending P1-B2 |
+| HL1 | Not connected in production: no login, migration or mounted route calls the service (the P1-B2A registration router is emulator-only and not mounted), and the guard is not deployed, so P1-B1 changes nothing in production. | Future development task | Pending P1-B2B and P1-B2C |
 | HL2 | Auth lifecycle race during provisioning: if the account is disabled or deleted in Auth after the first Auth lookup but before the write, the new record stays `active` (confirmed on the emulators in a scratch run). The second Auth check reports it (`activated = false`, issue `AUTH_DISABLED_RECORD_ACTIVE` or `AUTH_ACCOUNT_MISSING`), but nothing corrects the record. Once the guard is deployed, such a record would let that account's existing browser session keep Firestore access to its own documents until its ID token expires (up to one hour); the backend still rejects the account, and it cannot sign in again. | Security limitation (lifecycle consistency) | Open; reconciliation required before the guard is deployed (see "Reconciliation" above) |
 | HL3 | A write that times out is reported as `STORE_UNAVAILABLE` even if it was stored; the retry then reports the stored record with `created = false`, so the caller cannot always tell that its own earlier attempt created it. | Operations | Accepted (never reported as success) |
 | HL4 | Emulator results are not production evidence (Firestore contention behaviour, latency, Auth propagation). | Test-coverage gap | Open |
 | HL5 | Auth changes after provisioning: Firebase Authentication and Firestore cannot be updated atomically. An account disabled or deleted after the last Auth check (for example in the Firebase console) keeps its `active` record, and provisioning has correctly reported success because the record matched Auth when checked (confirmed on the emulators in a scratch run). `inspect_account` detects the mismatch afterwards. Same consequence as HL2. | Security limitation (lifecycle consistency) | Open; same reconciliation |
+
+### I. M3B-1B-P1-B2A — Trusted Backend Registration (Emulator Only)
+
+> **Status: implemented for local emulator testing only; not mounted, frontend not integrated, not
+> deployed.** `main.py` does not include `backend/routes/registration.py`, so the running backend has no
+> registration endpoint. Even when mounted (as in the tests), the route answers 404 outside Firebase
+> emulator mode without touching Firebase. All evidence comes from in-memory fakes and the local emulators
+> (`demo-route2unikl`); no real account, custom claim or Firestore document was read or written.
+> **P1-B2B and P1-B2C are pending.**
+
+**Purpose.** Option (a) of the P1-B2 decisions (section H): the server creates the Firebase Authentication
+account itself, so it knows the account is new, and only then provisions the account's access record. An ID
+token is never used as evidence that an account is new.
+
+**Workflow** (`backend/services/registration_service.py`; `POST /register` in `backend/routes/registration.py`):
+
+1. Validate the request: exactly `name`, `email`, `password` and `role`, all strings; any other field (a
+   uid, claims, flags, an access state) is refused. `name`: 1–100 characters, no control characters.
+   `email`: up to 254 characters in a conservative address format (Firebase checks it again). `password`:
+   6–128 characters (Firebase's minimum; Firebase stores the password). `role`: `spm_leaver` or `form_4_5`
+   (the Manage Users `STUDENT_TYPES`). The body is limited to 4 KB.
+2. Create the Firebase Authentication account with the Admin SDK (`create_user`: enabled, email not
+   verified). Firebase chooses the uid. An email already in use is refused (409) before anything is written.
+3. Create `users/{uid}` (approved by the owner on 24 Nov 2026) with exactly the fields the registration rule requires: `name`, `email` (as
+   Firebase stored it), `role` and `createdAt` (server time). Created only if absent.
+4. Provision the access record through `provision_access_record` (section H), last, so the Firestore guard
+   opens only for a complete account.
+5. Report success (201, body `{"status": "registered"}`) only if provisioning reports `activated`: a
+   newly created `active` record whose account was still enabled when checked after the write.
+
+| # | Protection | Implementation | Evidence |
+|---|---|---|---|
+| I1 | Evidence that the account is new comes from the server | Steps 3 and 4 use the uid that `create_user` returned in the same operation; a caller cannot supply a uid. An email already in use is refused before any write, so registration can never modify or activate an existing account, whatever its access record. | Backend unit; Emulator integration (tests 1, 3, 4) |
+| I2 | Strict input; no privileged fields | Unknown fields → 422 (`unexpected_field`); wrong types refused; `admin` and every other role refused. Invalid input never reaches Firebase. | Backend unit; Emulator integration (test 2) |
+| I3 | Passwords never disclosed | The route validates the body itself, because FastAPI's default 422 response repeats the submitted input. Responses carry a code and invalid field names only. The password is held as a secret value, passed only to `create_user`, and never stored, logged, returned or put into an exception. Firebase error messages (which can contain the email) are never logged; logs contain the uid, the step and codes only. | Backend unit (password, name and email sentinels never in logs, errors or responses); Emulator integration (test 11: logs, responses and stored documents) |
+| I4 | Success only when confirmed | 201 only after an activated access record. | Backend unit; Emulator integration (tests 1, 7–9) |
+| I5 | Partial failures never return success, and the new account is disabled when possible | If the profile or the access record cannot be created, a record unexpectedly exists, or Auth changes during provisioning, the service tries to disable the account just created (never deletes it) and returns 503 `REGISTRATION_INCOMPLETE`. The uid is logged for recovery, never returned. If disabling fails, the account stays **enabled**: the error log records `account_disabled=False`, and nothing retries it automatically. A retry of the request gets 409 and never completes or re-enables the account. | Backend unit (including a failed disable); Emulator integration (tests 7–9: account disabled, sign-in refused with `USER_DISABLED`; test 7: a retry gets 409 and the account stays disabled) |
+| I9 | The server-written profile matches the student schema | `users/{uid}` has exactly `name`, `email` (equal to the ID token's email claim), `role` and `createdAt` (a timestamp), for both roles. Under the deployed production rules, the student can read it and make the app's next profile update with their own token; changing the role is refused, and another student cannot read it. | Emulator integration (test 13: Firestore emulator enforcing `firestore.rules`) |
+| I6 | Duplicate and concurrent requests | Firebase Authentication enforces unique emails: one request creates the account, the others get 409; no second account, profile or record. | Backend unit (16 threads); Emulator integration (tests 5 and 6: 8 concurrent requests) |
+| I7 | Not exposed | `main.py` does not mount the router (checked by a test). Outside emulator mode the route answers 404 without touching Firebase or calling the registration service. If the emulator configuration is not ready, or Firebase was initialised in production mode even though the environment claims emulator mode, it answers 503 without calling the service. | Backend unit (service spy; real readiness check); Emulator integration (test 10: service spy, no account created) |
+| I8 | Emulator only | The section G harness: loopback hosts, `demo-` project, the key loader fails if called, every HTTP request on loopback. | Emulator integration (test 12) |
+
+**Partial registration outcomes**
+
+| Failure | State left behind | Response | Recovery |
+|---|---|---|---|
+| Invalid input; email in use | Nothing created or changed | 422; 409 | — |
+| Auth account creation fails, or its outcome is unknown | Possibly an enabled account without profile or record; its uid is not known | 503 `REGISTRATION_UNAVAILABLE` | A retry gets 409 if the account exists. An administrator finds it by email (`inspect_account` reports `RECORD_MISSING`) and completes or removes it. With the guard deployed, the missing record already denies Firestore access. |
+| Profile cannot be created | Account disabled; no profile; no record | 503 `REGISTRATION_INCOMPLETE` | An administrator completes the registration (profile, record, enable) or removes the account. |
+| Access record fails, or its outcome is unknown | Account disabled; profile; no record, or an `active` record if a timed-out write was stored (HL2, HL3) | 503 `REGISTRATION_INCOMPLETE` | As above; reconciliation (section H) would downgrade an `active` record. |
+| A record unexpectedly exists; Auth changes during provisioning | Account disabled; profile; the record as found, or an `active` record written meanwhile (HL2) | 503 `REGISTRATION_INCOMPLETE` | As above. |
+| The account cannot be disabled | Account **still enabled**; partial data; not restricted | 503 `REGISTRATION_INCOMPLETE`, the same response as above; the error log records `account_disabled=False` | Nothing retries the disable. An administrator must find the account from the error log and handle it manually; until then the account can sign in and use the backend (with the guard deployed, a missing record would still deny Firestore access). |
+| Response lost after success | Complete, enabled account | No response reaches the client; a retry gets 409 | The student signs in successfully. |
+
+A lost success response and an incomplete registration both make a retry return 409, but they differ: after a
+lost response the account is complete and sign-in succeeds; after an incomplete registration the first
+response was 503 and the account is disabled, so sign-in fails with `USER_DISABLED` (unless disabling itself
+failed, above).
+
+Recovery is manual and not guaranteed: completing or removing an incomplete registration needs the M3B
+account actions or a separately approved server-side tool, and depends on an administrator acting on the
+logs. Accounts are never deleted automatically.
+
+**Abuse prevention and production prerequisites** (assessment only; nothing below is implemented, because
+the route is not exposed):
+
+- The Admin SDK's `create_user` is not subject to the per-IP sign-up limits Firebase applies to browser
+  sign-ups, so the backend must add its own before exposure: rate limits per client and per email, kept in
+  a shared store rather than process memory; bot protection (for example Firebase App Check or reCAPTCHA);
+  and monitoring of incomplete registrations.
+- HTTPS only, with CORS limited to the frontend's origin.
+- A 409 reveals whether an email is registered, as Firebase's own sign-up error does unless its
+  email-enumeration protection is enabled. A uniform response needs another way to inform the student,
+  such as email verification (owner decision).
+- Password policy: Firebase's minimum of 6 characters is kept for consistency with the current app; a
+  stronger policy is an owner decision.
+
+**Owner decisions for this milestone (24 Nov 2026) and deferred production requirements.** Before the route
+may be mounted or exposed, each deferred item needs a separate, approved change:
+
+| Item | Decision for P1-B2A | Required before exposure |
+|---|---|---|
+| Profile creation | Registration creates `users/{uid}` (approved). | — |
+| Duplicate email | 409 `EMAIL_IN_USE`, for emulator testing only. | Decide whether to keep 409 or use a uniform response (IL4). |
+| Password minimum | Firebase's 6 characters, for compatibility. | Decide the production password policy. |
+| Rate limiting and bot protection | Deferred. | Implement per-client and per-email rate limits in a shared store, and bot protection (IL2). |
+| HTTPS and CORS | Deferred. | HTTPS only; CORS limited to the frontend's origin. |
+| Incomplete registrations | Manual recovery. | An approved recovery procedure or tool, and monitoring of the logs (IL3). |
+| Auth/Firestore reconciliation | Not implemented here. | Reconciliation (section H) before the guard is deployed (IL5). |
+| Mounting the route | Not mounted. | A separately approved change to `main.py`. |
+
+**Limitations**
+
+| # | Limitation | Type | Status |
+|---|---|---|---|
+| IL1 | Not exposed or integrated: there is no live registration endpoint, and the frontend still registers in the browser. | Future development task | Pending P1-B2B |
+| IL2 | No rate limiting or bot protection. | Security limitation (must be resolved before exposure) | Open |
+| IL3 | Incomplete registrations need manual administrator recovery, which is not guaranteed. An account whose creation outcome is unknown cannot be restricted automatically (its uid is unknown), and an account whose disable failed stays enabled until someone acts on the error log. | Operations | Open; manual recovery accepted for this milestone |
+| IL4 | A 409 reveals that an email is registered. | Privacy | Kept for emulator testing (owner decision); decide before exposure |
+| IL5 | The HL2 race applies: an access record written while Auth changes stays `active`. The account is disabled, but the record is not downgraded until reconciliation exists. | Security limitation (lifecycle consistency) | Open (section H reconciliation) |
+| IL6 | Emulator results are not production evidence (Auth quotas, latency, email normalisation, password policy). | Test-coverage gap | Open |
 
 ### Future Admin Module report
 
