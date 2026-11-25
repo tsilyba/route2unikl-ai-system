@@ -2,8 +2,10 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, useEmulators } from '../../firebase';
 import { hasAdminClaim, ADMIN_HOME, STUDENT_HOME } from '../../utils/adminClaims';
+import { ACCOUNT_ACCESS_DENIED_MESSAGE, probeAccountAccess } from '../../utils/accountAccess';
 
 // Reads the `admin` claim from a freshly issued ID token, retrying once so a
 // momentary network blip does not fail the login. Throws if both attempts fail.
@@ -81,6 +83,21 @@ const Login = () => {
       submittingRef.current = false;
       setLoading(false);
       return;
+    }
+
+    // Local emulator mode only (M3B-1B-P1-B2B/C): with the experimental account-access guard, a
+    // student whose access record is missing or blocked cannot read their own profile. Say so now and
+    // sign out, rather than let the student pages fail one by one. Login only reads; it never creates
+    // or changes an access record. Production is unchanged until the guard is deployed.
+    if (useEmulators && !isAdmin) {
+      const access = await probeAccountAccess(() => getDoc(doc(db, 'users', user.uid)));
+      if (access === 'denied') {
+        await signOut(auth).catch(() => {});
+        setError(ACCOUNT_ACCESS_DENIED_MESSAGE);
+        submittingRef.current = false;
+        setLoading(false);
+        return;
+      }
     }
 
     const destination = isAdmin ? ADMIN_HOME : STUDENT_HOME;

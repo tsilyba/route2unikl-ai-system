@@ -10,6 +10,9 @@ Safety: Firebase Authentication and Firestore are in-memory fakes (the fake
 Firestore has create-if-absent semantics; the fake Auth enforces unique
 emails). No network, emulator or credential is used.
 """
+import contextlib
+import importlib
+import io
 import logging
 import os
 import sys
@@ -40,6 +43,11 @@ PASSWORD = "Sentinel-Pass-91f2"
 NAME = "Sentinel Student Name"
 EMAIL = "sentinel.student@example.test"
 URL = "/api/account/register"
+
+
+def password_of(length):
+    """A distinctive test password of exactly `length` characters."""
+    return ("Zq9-" * 40)[:length]
 
 
 # ----------------------------------------------------------------------- fakes
@@ -233,6 +241,131 @@ class InputValidationTests(RegistrationTestBase):
         self.init.assert_not_called()
         self.assertEqual(self.auth.create_kwargs, [])
         self.assertEqual(self.store.docs, {})
+
+
+class PasswordCaptureBase(RegistrationTestBase):
+    """Records the password each create_user call receives (to prove it is passed on unchanged)."""
+
+    def setUp(self):
+        super().setUp()
+        self.passwords_sent = []
+
+        def capture(**kwargs):
+            self.passwords_sent.append(kwargs.get("password"))
+            return self.auth.create_user(**kwargs)
+
+        self.patch("services.registration_service.firebase_auth.create_user", side_effect=capture)
+
+    def assert_password_not_logged(self, password):
+        for message in self.logs.messages:
+            self.assertNotIn(password, message)
+
+
+class PasswordLengthBoundaryTests(PasswordCaptureBase):
+    """Regression for browser check M5 (26 Nov 2026): the 6-128 character password rule at its boundaries.
+
+    Length is the number of characters (code points) of the password exactly as received: it is never
+    trimmed or changed. Invalid lengths create no Auth account, profile or access record.
+    """
+
+    def test_5_and_129_characters_are_refused_before_any_firebase_call(self):
+        for password in (password_of(5), password_of(129), "\U0001F600" * 129):
+            with self.subTest(length=len(password)):
+                error = self.assert_registration_error(registration.INVALID_REGISTRATION, password=password)
+                self.assertEqual(list(error.fields), ["password"])
+                self.assertNotIn(password, repr(vars(error)))
+                self.assert_password_not_logged(password)
+        self.init.assert_not_called()
+        self.assertEqual(self.passwords_sent, [], "Firebase Authentication is never called")
+        self.assertEqual(self.auth.users, {}, "no Auth account")
+        self.assertEqual(self.store.docs, {}, "no profile and no access record")
+
+    def test_6_and_128_characters_register_with_the_password_unchanged(self):
+        for password in (password_of(6), password_of(128), "ab cd1", "\U0001F600" * 128):
+            with self.subTest(length=len(password)):
+                self.fresh()
+                self.passwords_sent.clear()
+                uid = self.register(password=password)
+                self.assertEqual(self.passwords_sent, [password], "sent to Firebase exactly as received")
+                self.assertEqual(self.store.doc("account_access", uid), {"state": "active", "version": 1})
+                self.assert_password_not_logged(password)
+
+    def test_spaces_count_and_are_never_trimmed(self):
+        # Spaces are ordinary characters: they count towards the length and are kept. (The M5 input, a
+        # leading TAB plus 5 characters, is refused since the JL9 control-character rule; see below.)
+        for password in (" " + password_of(5), password_of(5) + " ", "Test 123"):
+            with self.subTest(password=repr(password)):
+                self.fresh()
+                self.passwords_sent.clear()
+                self.register(password=password)
+                self.assertEqual(self.passwords_sent, [password], "sent to Firebase exactly as received")
+        self.fresh()
+        self.passwords_sent.clear()
+        self.assert_registration_error(registration.INVALID_REGISTRATION, password="   " + password_of(2))
+        self.assertEqual(self.passwords_sent, [], "5 characters including spaces: refused, not padded or trimmed")
+        self.assertEqual(self.auth.users, {})
+        self.assertEqual(self.store.docs, {})
+
+
+class PasswordControlCharacterTests(PasswordCaptureBase):
+    """JL9 (26 Nov 2026): passwords containing Unicode control characters (category Cc) are refused.
+
+    Checked on the password exactly as received (never trimmed, normalised or stripped), before any
+    Firebase call; only the field name is reported, never the password or its characters.
+    """
+
+    # Every one of these is otherwise valid (6 to 128 characters).
+    CONTROL_PASSWORDS = (
+        "\tTest1",            # the M5 input: a leading TAB
+        "Test1\t",            # trailing TAB
+        "Test\n123",          # line feed
+        "Test\r123",          # carriage return
+        "Test\r\n123",        # CRLF
+        "Test\x7f123",        # DEL
+        "\x00Test123",        # NUL
+        "Test\x1b123",        # ESC
+        "Test\x85123",        # NEL (C1 control)
+        "Test\x9f123",        # last C1 control
+    )
+
+    def test_control_characters_are_refused_before_any_firebase_call(self):
+        for password in self.CONTROL_PASSWORDS:
+            with self.subTest(password=repr(password)):
+                error = self.assert_registration_error(registration.INVALID_REGISTRATION, password=password)
+                self.assertEqual(list(error.fields), ["password"])
+                self.assertNotIn(password, repr(vars(error)))
+                self.assert_password_not_logged(password)
+        self.init.assert_not_called()
+        self.assertEqual(self.passwords_sent, [], "Firebase Authentication is never called")
+        self.assertEqual(self.auth.users, {}, "no Auth account")
+        self.assertEqual(self.store.docs, {}, "no profile and no access record")
+
+    def test_the_owner_cases(self):
+        self.assert_registration_error(registration.INVALID_REGISTRATION, password="Test1")   # 5 characters
+        self.assert_registration_error(registration.INVALID_REGISTRATION, password="\tTest1")  # TAB + Test1
+        self.assertEqual(self.passwords_sent, [])
+        self.register(password="Test123")                                                       # 7 characters
+        self.assertEqual(self.passwords_sent, ["Test123"])
+
+    def test_every_code_point_in_category_cc_is_refused(self):
+        import unicodedata
+        control = [code for code in range(0x110000) if unicodedata.category(chr(code)) == "Cc"]
+        self.assertEqual(control, list(range(0x00, 0x20)) + list(range(0x7F, 0xA0)),
+                         "category Cc is exactly U+0000-U+001F and U+007F-U+009F (the frontend uses the same set)")
+        for code in control:
+            with self.subTest(code=f"U+{code:04X}"), self.assertRaises(registration.RegistrationError) as ctx:
+                registration.validate_registration(NAME, EMAIL, f"Test{chr(code)}12", "spm_leaver")
+            self.assertEqual(list(ctx.exception.fields), ["password"])
+        self.init.assert_not_called()
+
+    def test_printable_characters_next_to_the_control_ranges_are_accepted(self):
+        # U+0020 (space), U+007E (~), U+00A0 (no-break space) and U+00A1 are not category Cc.
+        for password in ("Test 123", "Test~123", "Test 123", "Test¡123"):
+            with self.subTest(password=repr(password)):
+                self.fresh()
+                self.passwords_sent.clear()
+                self.register(password=password)
+                self.assertEqual(self.passwords_sent, [password])
 
 
 class ExistingAccountTests(RegistrationTestBase):
@@ -431,6 +564,45 @@ class RegistrationRouteTests(RegistrationTestBase):
                 self.assertEqual((response.status_code, response.json()), (422, {"code": "INVALID_REGISTRATION"}))
         self.assertEqual(self.auth.create_kwargs, [])
 
+    def test_password_length_boundaries(self):
+        """Regression (M5): 5 and 129 characters → 422 naming only the field, nothing created; 6 and 128 → 201."""
+        for length, status in ((5, 422), (129, 422), (6, 201), (128, 201)):
+            with self.subTest(length=length):
+                self.fresh()
+                password = password_of(length)
+                response = self.post({"name": NAME, "email": EMAIL, "password": password, "role": "spm_leaver"})
+                self.assertEqual(response.status_code, status)
+                self.assertNotIn(password, response.text)
+                self.assert_no_secrets(response)
+                if status == 422:
+                    self.assertEqual(response.json(), {"code": "INVALID_REGISTRATION", "fields": ["password"]})
+                    self.assertEqual(self.auth.create_kwargs, [], "no Firebase Authentication call")
+                    self.assertEqual(self.auth.users, {}, "no Auth account")
+                    self.assertEqual(self.store.docs, {}, "no profile and no access record")
+                else:
+                    self.assertEqual(response.json(), {"status": "registered"})
+                    user = self.only_user()
+                    self.assertEqual(self.store.doc("account_access", user.uid), {"state": "active", "version": 1})
+                for message in self.logs.messages:
+                    self.assertNotIn(password, message)
+
+    def test_passwords_with_control_characters_are_refused(self):
+        """JL9: TAB, line feed, carriage return, DEL → 422 naming only the field; nothing created; not echoed."""
+        for password in ("\tTest1", "Test\n123", "Test\r123", "Test\x7f123", "Test1\t"):
+            with self.subTest(password=repr(password)):
+                response = self.post({"name": NAME, "email": EMAIL, "password": password, "role": "spm_leaver"})
+                self.assertEqual((response.status_code, response.json()),
+                                 (422, {"code": "INVALID_REGISTRATION", "fields": ["password"]}))
+                self.assertNotIn(password, response.text)
+                self.assertNotIn("Test", response.text)
+                for message in self.logs.messages:
+                    self.assertNotIn(password, message)
+        self.assertEqual(self.auth.create_kwargs, [], "no Firebase Authentication call")
+        self.assertEqual(self.auth.users, {}, "no Auth account")
+        self.assertEqual(self.store.docs, {}, "no profile and no access record")
+        response = self.post({"name": NAME, "email": EMAIL, "password": "Test 123", "role": "spm_leaver"})
+        self.assertEqual(response.status_code, 201, "an internal space is an ordinary character")
+
     def test_oversized_requests_are_refused(self):
         response = self.post({"name": NAME, "email": EMAIL, "password": PASSWORD, "role": "spm_leaver",
                               "padding": "x" * 5000})
@@ -464,8 +636,24 @@ class RegistrationRouteTests(RegistrationTestBase):
         self.assertTrue(self.only_user().disabled)
         self.assertEqual(len(self.auth.updates), 1)
 
-    def test_the_router_is_not_mounted_and_only_this_route_uses_the_service(self):
-        self.assertNotIn("registration", (BACKEND_DIR / "main.py").read_text(encoding="utf-8"))
+    def test_main_mounts_the_router_only_in_emulator_mode(self):
+        def registration_paths(env):
+            sys.modules.pop("main", None)
+            try:
+                with firebase_env(env), mock.patch("core.firebase.initialize_firebase", return_value=None), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    main = importlib.import_module("main")
+                # Included routers are not plain routes in app.routes here; the OpenAPI schema lists every path.
+                return [path for path in main.app.openapi()["paths"] if "register" in path]
+            finally:
+                sys.modules.pop("main", None)
+
+        for env in ({}, {"ROUTE2UNIKL_FIREBASE_MODE": "production"}, {"ROUTE2UNIKL_FIREBASE_MODE": "staging"}):
+            with self.subTest(env=env):
+                self.assertEqual(registration_paths(env), [], "no registration route outside emulator mode")
+        self.assertEqual(registration_paths(VALID_EMULATOR_ENV), [URL])
+
+    def test_only_the_registration_route_uses_the_service(self):
         for path in sorted((BACKEND_DIR / "routes").glob("*.py")):
             if path.name != "registration.py":
                 with self.subTest(path=path.name):

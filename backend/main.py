@@ -5,6 +5,7 @@ from core.firebase import initialize_firebase
 from routes.assessment import router as assessment_router
 from routes.auth_check import router as auth_check_router
 from routes.admin_users import router as admin_users_router
+from routes.registration import registration_enabled, router as registration_router
 
 app = FastAPI(
     title="Route2UniKL API",
@@ -27,6 +28,12 @@ app.include_router(auth_check_router, prefix="/api", tags=["Auth"])
 
 # Mount read-only Admin "Manage Users" endpoints (require_admin; M3A)
 app.include_router(admin_users_router, prefix="/api/admin/users", tags=["Admin Users"])
+
+# Trusted student registration (M3B-1B-P1-B2A): mounted ONLY when the backend starts in Firebase
+# emulator mode, for local development and tests. In production mode the route does not exist
+# (and the router itself would answer 404 outside emulator mode).
+if registration_enabled():
+    app.include_router(registration_router, prefix="/api/account", tags=["Account (local emulator only)"])
 
 try:
     db = initialize_firebase()

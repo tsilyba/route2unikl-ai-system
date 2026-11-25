@@ -2,8 +2,8 @@
 """
 Trusted, backend-mediated student registration (M3B-1B-P1-B2A).
 
-LOCAL EMULATOR TESTING ONLY: the route in routes/registration.py is not mounted
-by main.py and answers 404 outside Firebase emulator mode.
+LOCAL EMULATOR TESTING ONLY: main.py mounts the route in routes/registration.py
+only in Firebase emulator mode, and the route answers 404 outside that mode.
 
 One server operation creates, in this order:
   1. the Firebase Authentication account (Admin SDK create_user). The uid comes
@@ -32,6 +32,7 @@ address or name.
 """
 import logging
 import re
+import unicodedata
 from typing import Optional, Sequence, Tuple
 
 from firebase_admin import auth as firebase_auth
@@ -72,8 +73,18 @@ class RegistrationError(Exception):
         self.restricted = restricted  # REGISTRATION_INCOMPLETE only: whether the account was disabled
 
 
+def _has_control_character(value: str) -> bool:
+    """True if any character is in Unicode category Cc (U+0000-U+001F and U+007F-U+009F: TAB, line feed,
+    carriage return, DEL and the other control characters), which cannot be seen in a password field."""
+    return any(unicodedata.category(character) == "Cc" for character in value)
+
+
 def validate_registration(name, email, password, role) -> Tuple[str, str]:
-    """Return the cleaned (name, email), or raise INVALID_REGISTRATION naming the invalid fields."""
+    """Return the cleaned (name, email), or raise INVALID_REGISTRATION naming the invalid fields.
+
+    The password is checked as received and never trimmed or changed: 6 to 128 characters (code points)
+    and no control characters. Only the field name is reported, never the password or its characters.
+    """
     invalid = []
     clean_name = name.strip() if isinstance(name, str) else ""
     if not clean_name or len(clean_name) > NAME_MAX_LENGTH or _CONTROL_RE.search(clean_name):
@@ -81,7 +92,8 @@ def validate_registration(name, email, password, role) -> Tuple[str, str]:
     clean_email = email.strip() if isinstance(email, str) else ""
     if len(clean_email) > EMAIL_MAX_LENGTH or not _EMAIL_RE.fullmatch(clean_email):
         invalid.append("email")
-    if not isinstance(password, str) or not PASSWORD_MIN_LENGTH <= len(password) <= PASSWORD_MAX_LENGTH:
+    if (not isinstance(password, str) or not PASSWORD_MIN_LENGTH <= len(password) <= PASSWORD_MAX_LENGTH
+            or _has_control_character(password)):
         invalid.append("password")
     if not isinstance(role, str) or role not in STUDENT_TYPES:
         invalid.append("role")

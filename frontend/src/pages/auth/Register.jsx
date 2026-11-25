@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../../firebase';
+import { auth, db, useEmulators } from '../../firebase';
+import { API_BASE_URL } from '../../utils/apiClient';
+import { passwordValidationMessage, registerThroughBackend } from '../../utils/registrationApi';
 
 const Register = () => {
   //state variables!
@@ -25,6 +27,28 @@ const Register = () => {
     if (password !== confirmPassword) {
       setError('Passwords do not match. Please try again.');
       return; 
+    }
+
+    // Both registration paths: 6 to 128 characters and no hidden control characters (such as TAB or a
+    // line break), checked before any request. The password is never trimmed or otherwise changed.
+    const passwordProblem = passwordValidationMessage(password);
+    if (passwordProblem) {
+      setError(passwordProblem);
+      return;
+    }
+
+    // Local emulator mode only (M3B-1B-P1-B2B/C): the trusted backend creates the account, the
+    // student profile and the account-access record. Production keeps the browser flow below
+    // until backend registration is approved for production.
+    if (useEmulators) {
+      const result = await registerThroughBackend(API_BASE_URL, { name, email, password, role });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      alert(result.message);
+      navigate('/login');
+      return;
     }
 
     try {

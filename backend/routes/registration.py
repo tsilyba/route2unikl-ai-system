@@ -2,11 +2,12 @@
 """
 Trusted student registration endpoint (M3B-1B-P1-B2A): LOCAL EMULATOR TESTING ONLY.
 
-This router is deliberately NOT mounted by main.py. Even when mounted, it
-answers 404 unless the backend runs in Firebase emulator mode
-(ROUTE2UNIKL_FIREBASE_MODE=emulator, see core.firebase), and in any other mode
-it never touches Firebase. Before it can serve real users it needs HTTPS, rate
-limiting and abuse protection (docs/PROJECT_STATUS.md, section 8 I).
+main.py mounts this router only when the backend starts in Firebase emulator
+mode (registration_enabled()). Even when mounted, it answers 404 unless the
+backend is still in emulator mode (ROUTE2UNIKL_FIREBASE_MODE=emulator, see
+core.firebase), and in any other mode it never touches Firebase. Before it can
+serve real users it needs HTTPS, rate limiting and abuse protection
+(docs/PROJECT_STATUS.md, section 8 I).
 
 The request body is read and validated here rather than by FastAPI, because
 FastAPI's default 422 response repeats the submitted input, which would include
@@ -63,8 +64,9 @@ def _invalid_fields(exc: ValidationError) -> List[str]:
     return sorted(names)
 
 
-def _registration_enabled() -> bool:
-    """Only in Firebase emulator mode; decided from the environment without touching Firebase."""
+def registration_enabled() -> bool:
+    """Only in Firebase emulator mode; decided from the environment without touching Firebase.
+    Also used by main.py to decide whether to mount this router at all."""
     try:
         return core_firebase.firebase_mode() == core_firebase.EMULATOR_MODE
     except core_firebase.FirebaseConfigError:
@@ -84,7 +86,7 @@ def _emulator_ready() -> bool:
 
 @router.post("/register", status_code=201)
 async def register_student(request: Request):
-    if not _registration_enabled():
+    if not registration_enabled():
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
     declared_length = request.headers.get("content-length")
