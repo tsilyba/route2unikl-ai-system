@@ -6,6 +6,7 @@ from routes.assessment import router as assessment_router
 from routes.auth_check import router as auth_check_router
 from routes.admin_users import router as admin_users_router
 from routes.registration import registration_enabled, router as registration_router
+from routes.admin_account_actions import account_actions_enabled, router as account_actions_router
 
 app = FastAPI(
     title="Route2UniKL API",
@@ -34,6 +35,12 @@ app.include_router(admin_users_router, prefix="/api/admin/users", tags=["Admin U
 # (and the router itself would answer 404 outside emulator mode).
 if registration_enabled():
     app.include_router(registration_router, prefix="/api/account", tags=["Account (local emulator only)"])
+
+# Admin Disable / Enable account actions (M3B-2): mounted ONLY in Firebase emulator mode, like registration.
+# In production mode these routes do not exist (and the router itself would answer 404 outside emulator mode).
+if account_actions_enabled():
+    app.include_router(account_actions_router, prefix="/api/admin/users",
+                       tags=["Admin account actions (local emulator only)"])
 
 try:
     db = initialize_firebase()

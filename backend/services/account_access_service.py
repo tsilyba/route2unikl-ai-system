@@ -4,10 +4,18 @@ Backend-only account-access records, account_access/{uid} (M3B-1B-P1-B1).
 
 The experimental Firestore guard (firestore-tests/account-access.experimental.rules)
 lets a browser reach a student's private documents only while this record is
-well-formed and in state 'active'. This module reads and creates these records
-with the Firebase Admin SDK through core.firebase, which re-validates the
-Firebase configuration on every call. Firestore Security Rules do not apply to
-it. No HTTP route calls this module.
+well-formed and in state 'active'. This module reads, creates and (for the
+M3B-2 admin account actions) changes these records with the Firebase Admin SDK
+through core.firebase, which re-validates the Firebase configuration on every
+call. Firestore Security Rules do not apply to it. Its callers are the
+emulator-only trusted registration (M3B-1B-P1-B2A) and the emulator-only admin
+account actions (services/account_action_service.py, M3B-2).
+
+change_record_state() changes a well-formed record's state with version + 1,
+only if the stored document is unchanged since it was read (an optimistic
+precondition on its update time). reconcile_access_record() is the
+downgrade-only correction: an 'active' record whose Auth account is disabled or
+missing becomes 'disabled'; nothing is ever upgraded.
 
 Record schema, exactly as the guard requires:
     state               'active' | 'disabled' | 'deleting' | 'deleted'
@@ -39,6 +47,7 @@ from typing import Any, Optional, Tuple
 
 from firebase_admin import auth as firebase_auth
 from google.api_core import exceptions as google_exceptions
+from google.cloud.firestore import SERVER_TIMESTAMP
 
 from core.firebase import initialize_firebase
 from services.user_admin_service import UID_PATTERN
@@ -58,6 +67,7 @@ FIREBASE_UNAVAILABLE = "FIREBASE_UNAVAILABLE"      # initialisation or configura
 AUTH_ACCOUNT_NOT_FOUND = "AUTH_ACCOUNT_NOT_FOUND"  # provisioning refused; nothing written
 AUTH_UNAVAILABLE = "AUTH_UNAVAILABLE"
 STORE_UNAVAILABLE = "STORE_UNAVAILABLE"            # includes a create whose outcome is unknown
+STALE_RECORD = "STALE_RECORD"                      # changed since it was read; nothing was written
 
 # Why a stored record is malformed (RecordLookup.problems)
 NOT_A_MAP = "NOT_A_MAP"
@@ -130,6 +140,26 @@ class ProvisionResult:
         """True only for a newly created 'active' record whose Auth account was still enabled afterwards."""
         return (self.created and self.lookup.status == "valid"
                 and self.lookup.record.state == "active" and not self.issues)
+
+
+@dataclass(frozen=True)
+class RecordSnapshot:
+    lookup: RecordLookup
+    update_time: Any = None  # Firestore update time of the stored document; None when missing
+
+
+@dataclass(frozen=True)
+class RecordChange:
+    version: int             # the version written
+    update_time: Any         # Firestore update time of the write
+
+
+@dataclass(frozen=True)
+class ReconcileResult:
+    uid: str
+    auth_status: str
+    downgraded: bool         # True only if this call changed 'active' to 'disabled'
+    lookup: RecordLookup     # the record before any change
 
 
 # ----------------------------------------------------------------------- validation
@@ -221,7 +251,86 @@ def _read(db, uid: str) -> RecordLookup:
     return validate_access_record(snapshot.to_dict())
 
 
+def _read_snapshot(db, uid: str) -> RecordSnapshot:
+    """As _read, keeping the document's update time for an optimistic precondition."""
+    try:
+        snapshot = _document(db, uid).get()
+    except Exception as exc:
+        logger.error("Firestore unavailable reading account access (uid=%s): %s", uid, type(exc).__name__)
+        raise AccountAccessError(STORE_UNAVAILABLE) from None
+    if not snapshot.exists:
+        return RecordSnapshot(RecordLookup("missing"))
+    return RecordSnapshot(validate_access_record(snapshot.to_dict()), snapshot.update_time)
+
+
+def consistency_issues(auth_status: str, lookup: RecordLookup) -> Tuple[str, ...]:
+    """Inconsistencies between a Firebase Authentication status and a record (see inspect_account)."""
+    return _issues(auth_status, lookup)
+
+
 # -------------------------------------------------------------------- public API
+def read_record_snapshot(uid: str) -> RecordSnapshot:
+    """The stored record with its Firestore update time, for a later change_record_state()."""
+    uid = _require_valid_uid(uid)
+    return _read_snapshot(_db(), uid)
+
+
+def change_record_state(uid: str, snapshot: RecordSnapshot, *, state: str,
+                        set_threshold: bool = False) -> RecordChange:
+    """Set a well-formed record's state with version + 1, only if it is unchanged since `snapshot`.
+
+    The write carries a precondition on the stored document's update time, so a record changed or removed
+    by anyone since it was read is never overwritten (STALE_RECORD; nothing written). With
+    set_threshold, sessionsValidAfter becomes the Firestore server time of this write. Only the guard's
+    fields are written; an existing sessionsValidAfter is kept. Never retried automatically: a write whose
+    outcome is unknown is STORE_UNAVAILABLE.
+    """
+    uid = _require_valid_uid(uid)
+    if state not in ("active", "disabled"):
+        raise ValueError("Only 'active' and 'disabled' can be set here")
+    if snapshot.lookup.status != "valid" or snapshot.update_time is None:
+        raise ValueError("Only a stored, well-formed record can be changed")
+    version = snapshot.lookup.record.version + 1
+    changes = {"state": state, "version": version}
+    if set_threshold:
+        changes["sessionsValidAfter"] = SERVER_TIMESTAMP
+    db = _db()
+    try:
+        result = _document(db, uid).update(
+            changes, option=db.write_option(last_update_time=snapshot.update_time),
+            retry=None, timeout=WRITE_TIMEOUT_SECONDS)
+    except (google_exceptions.FailedPrecondition, google_exceptions.NotFound, google_exceptions.Aborted) as exc:
+        logger.warning("Account access record changed since it was read; not written (uid=%s): %s",
+                       uid, type(exc).__name__)
+        raise AccountAccessError(STALE_RECORD) from None
+    except Exception as exc:
+        logger.error("Account access record change not confirmed (uid=%s): %s", uid, type(exc).__name__)
+        raise AccountAccessError(STORE_UNAVAILABLE) from None
+    logger.info("Account access record changed (uid=%s, state=%s, version=%s, threshold_set=%s)",
+                uid, state, version, set_threshold)
+    return RecordChange(version, result.update_time)
+
+
+def reconcile_access_record(uid: str) -> ReconcileResult:
+    """Downgrade-only reconciliation (HL2, HL5): an 'active' record whose Auth account is disabled or
+    missing becomes 'disabled' (version + 1, sessionsValidAfter kept), unless it changed meanwhile.
+
+    Never upgrades a record, never touches 'deleting', 'deleted', missing or malformed records, and never
+    writes when Firebase Authentication cannot be read. Every downgrade is logged.
+    """
+    uid = _require_valid_uid(uid)
+    db = _db()
+    snapshot = _read_snapshot(db, uid)
+    auth_status = _auth_status(uid)
+    lookup = snapshot.lookup
+    if auth_status in (AUTH_DISABLED, AUTH_MISSING) and lookup.status == "valid" and lookup.record.state == "active":
+        change_record_state(uid, snapshot, state="disabled")
+        logger.warning("Account access record downgraded to 'disabled' by reconciliation (uid=%s, auth=%s)",
+                       uid, auth_status)
+        return ReconcileResult(uid, auth_status, True, lookup)
+    return ReconcileResult(uid, auth_status, False, lookup)
+
+
 def read_access_record(uid: str) -> RecordLookup:
     """The stored record for `uid`: valid, missing or malformed (never repaired)."""
     uid = _require_valid_uid(uid)

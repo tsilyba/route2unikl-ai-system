@@ -1,9 +1,9 @@
 // frontend/src/pages/admin/AdminUsers.jsx
 //
-// Admin "Manage Users" list (Milestone M3A) — READ ONLY.
+// Admin "Manage Users" list (Milestone M3A) — read only.
 // Data comes from GET /api/admin/users (require_admin; Firebase Admin SDK on the
 // server). Search and filters live in the page URL so they survive opening a
-// user's details and coming back. There are no account actions here (M3B is deferred).
+// user's details and coming back. Disable / Enable (M3B-2) are on the User Details page.
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminIcon from '../../components/admin/AdminIcons';
@@ -327,8 +327,8 @@ const AdminUsers = () => {
       <section aria-labelledby="admin-users-title">
         <h2 id="admin-users-title" className="text-lg font-bold text-slate-900">Accounts</h2>
         <p className="text-sm text-slate-600">
-          Read-only view of student and administrator accounts, newest registration first. Account actions are not
-          available yet.
+          Student and administrator accounts, newest registration first. Open an account to disable or enable it
+          (available when the server runs with the local Firebase emulators).
         </p>
       </section>
 

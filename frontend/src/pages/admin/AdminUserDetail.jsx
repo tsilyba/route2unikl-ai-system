@@ -1,14 +1,17 @@
 // frontend/src/pages/admin/AdminUserDetail.jsx
 //
-// Admin "User Details" (Milestone M3A) — READ ONLY.
-// Data comes from GET /api/admin/users/{uid} (require_admin). Academic records are
+// Admin "User Details" (Milestone M3A), with the Disable / Enable account actions (M3B-2).
+// Account data comes from GET /api/admin/users/{uid} (require_admin). Academic records are
 // shown as metadata only: grades and assessment answers are never requested or shown.
-// There are no account actions here (M3B is deferred).
-import { useEffect, useState } from 'react';
+// The "Account access" panel uses GET /api/admin/users/{uid}/access and POST .../disable and
+// .../enable (require_admin; available only when the backend runs with the local Firebase
+// emulators). The browser never changes Firebase accounts itself.
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import AdminIcon from '../../components/admin/AdminIcons';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ADMIN_USERS_PATH } from '../../components/admin/adminNavigation';
-import { fetchAdminUser } from '../../utils/adminUsersApi';
+import { disableAccount, enableAccount, fetchAccountAccess, fetchAdminUser } from '../../utils/adminUsersApi';
 import {
   AdminUsersRequestError,
   formatDateTime,
@@ -18,9 +21,182 @@ import {
   getStudentTypeLabel,
   isValidUid,
 } from '../../utils/adminUsers';
+import {
+  describeAccessLoadError,
+  describeAccountAccess,
+  describeActionError,
+  describeActionSuccess,
+  getActionButtons,
+  getConfirmation,
+} from '../../utils/adminAccountActions';
 import { AccountBadges, RequestErrorPanel } from './AdminUsers';
 
 const NOT_FOUND = new AdminUsersRequestError(404, 'USER_NOT_FOUND');
+
+const STATE_BADGE_TONES = {
+  active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  disabled: 'bg-red-50 text-red-700 ring-red-200',
+  warning: 'bg-amber-50 text-amber-800 ring-amber-200',
+  info: 'bg-blue-50 text-blue-700 ring-blue-200',
+  admin: 'bg-blue-50 text-blue-700 ring-blue-200',
+  neutral: 'bg-slate-100 text-slate-700 ring-slate-200',
+};
+
+const FEEDBACK_TONES = {
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+  warning: 'border-amber-200 bg-amber-50 text-amber-900',
+  info: 'border-blue-200 bg-blue-50 text-blue-900',
+  error: 'border-red-200 bg-red-50 text-red-900',
+};
+
+const ACTION_BUTTON_TONES = {
+  danger: 'border border-red-300 bg-white text-red-700 hover:bg-red-50 focus-visible:outline-red-600',
+  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:outline-blue-600',
+};
+
+const secondaryButton =
+  'rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer';
+
+// Disable / Enable (M3B-2). The server decides which actions are allowed; this panel shows its answer,
+// asks for confirmation, prevents double submission and reports the outcome truthfully.
+const AccountAccessPanel = ({ uid, name, refreshKey, onChanged }) => {
+  const [reload, setReload] = useState(0);
+  const loadKey = `${uid}#${refreshKey}#${reload}`;
+  const [loaded, setLoaded] = useState({ key: null, uid: null, data: null, error: null });
+  const [confirming, setConfirming] = useState(null); // the button whose action awaits confirmation
+  const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const submittingRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchAccountAccess(uid)
+      .then((data) => {
+        if (active) setLoaded({ key: loadKey, uid, data, error: null });
+      })
+      .catch((error) => {
+        // An expired session is handled by the page's own request (RequestErrorPanel).
+        if (active) setLoaded({ key: loadKey, uid, data: null, error });
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadKey, uid]);
+
+  const loading = loaded.key !== loadKey;
+  const access = loaded.uid === uid ? loaded.data : null;
+
+  const runAction = async () => {
+    if (!confirming || submittingRef.current) return;
+    submittingRef.current = true;
+    const { action } = confirming;
+    setPending(true);
+    setFeedback(null);
+    try {
+      const result = await (action === 'disable' ? disableAccount : enableAccount)(uid);
+      setLoaded({ key: loadKey, uid, data: result.account ?? null, error: null });
+      setFeedback(describeActionSuccess(result));
+      onChanged(); // refresh the account details shown on the page
+    } catch (error) {
+      setFeedback(describeActionError(error));
+      setReload((n) => n + 1); // show the account's current state, for example an incomplete change
+    } finally {
+      submittingRef.current = false;
+      setPending(false);
+      setConfirming(null);
+    }
+  };
+
+  let content;
+  if (!access && loading) {
+    content = (
+      <p role="status" className="flex items-center gap-3 text-sm text-slate-600">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" aria-hidden="true" />
+        Checking account access…
+      </p>
+    );
+  } else if (!access) {
+    const info = describeAccessLoadError(loaded.error);
+    content = (
+      <div className="space-y-3">
+        <p className={`text-sm ${info.kind === 'unavailable' ? 'text-slate-600' : 'text-red-700'}`}>{info.message}</p>
+        {info.retry && (
+          <button type="button" onClick={() => setReload((n) => n + 1)} className={secondaryButton}>
+            Try again
+          </button>
+        )}
+      </div>
+    );
+  } else {
+    const view = describeAccountAccess(access);
+    const buttons = getActionButtons(access);
+    content = (
+      <div className="space-y-4" aria-busy={loading}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${STATE_BADGE_TONES[view.tone] ?? STATE_BADGE_TONES.neutral}`}>
+            {view.label}
+          </span>
+          {loading && <span className="text-xs font-medium text-blue-700">Updating…</span>}
+        </div>
+        <p className="text-sm text-slate-700">{view.description}</p>
+        {view.details.length > 0 && (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+            {view.details.map((detail) => <li key={detail}>{detail}</li>)}
+          </ul>
+        )}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          {buttons.map((button) => (
+            <button
+              key={button.action}
+              type="button"
+              onClick={() => setConfirming(button)}
+              disabled={pending || loading}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 cursor-pointer ${ACTION_BUTTON_TONES[button.tone]}`}
+            >
+              {button.label}
+            </button>
+          ))}
+          <button type="button" onClick={() => setReload((n) => n + 1)} disabled={pending || loading} className={secondaryButton}>
+            Refresh
+          </button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Changes go through protected server endpoints and are recorded in an audit log.
+        </p>
+      </div>
+    );
+  }
+
+  const confirmation = confirming ? getConfirmation(confirming.action, { name, resume: confirming.resume }) : null;
+
+  return (
+    <section aria-labelledby="account-access-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 id="account-access-title" className="mb-4 flex items-center gap-2 text-base font-bold text-slate-900">
+        <AdminIcon name="shield" className="h-5 w-5 text-slate-500" />
+        Account access
+      </h2>
+      {feedback && (
+        <div role={feedback.tone === 'error' ? 'alert' : 'status'} className={`mb-4 rounded-xl border p-3 text-sm ${FEEDBACK_TONES[feedback.tone] ?? FEEDBACK_TONES.info}`}>
+          <p className="font-semibold">{feedback.title}</p>
+          <p className="mt-1">{feedback.message}</p>
+        </div>
+      )}
+      {content}
+      {confirmation && (
+        <ConfirmDialog
+          title={confirmation.title}
+          message={confirmation.message}
+          confirmLabel={confirmation.confirmLabel}
+          pendingLabel={confirmation.pendingLabel}
+          tone={confirmation.tone}
+          pending={pending}
+          onConfirm={runAction}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+    </section>
+  );
+};
 
 const Card = ({ title, icon, children, className = '' }) => (
   <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
@@ -97,7 +273,9 @@ const AdminUserDetail = () => {
     );
   }
 
-  if (result.key !== requestKey) {
+  // While refreshing (for example after an account action), keep showing this account's details.
+  const refreshing = result.key !== requestKey;
+  if (refreshing && result.data?.uid !== uid) {
     return (
       <div className="space-y-4">
         {backLink}
@@ -109,7 +287,7 @@ const AdminUserDetail = () => {
     );
   }
 
-  if (result.error) {
+  if (!refreshing && result.error) {
     return (
       <div className="space-y-4">
         {backLink}
@@ -143,6 +321,14 @@ const AdminUserDetail = () => {
           <p className="mt-2 break-all font-mono text-xs text-slate-400">User ID: {user.uid}</p>
         </div>
       </section>
+
+      <AccountAccessPanel
+        key={user.uid}
+        uid={user.uid}
+        name={profile?.name || user.email}
+        refreshKey={reloadCount}
+        onChanged={() => setReloadCount((n) => n + 1)}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Account (Firebase Authentication) */}
@@ -237,8 +423,8 @@ const AdminUserDetail = () => {
 
       <p className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         <AdminIcon name="lock" className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-        Read-only view. Disabling, enabling and deleting accounts are planned for a later milestone (M3B) and are not
-        available.
+        Account details are read-only. Disabling and enabling are in the Account access panel above. Deleting
+        accounts is planned for a later milestone and is not available.
       </p>
     </div>
   );

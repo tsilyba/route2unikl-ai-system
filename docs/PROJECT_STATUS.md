@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 24 November 2026 (MYT): M3B-1B-P1-B2B/C local account integration, **local emulators only, not deployed**: the backend mounts the registration route only when it starts in Firebase emulator mode, and the React dev server uses the emulators and backend registration only with `VITE_USE_FIREBASE_EMULATORS=true`; production behaviour unchanged; owner browser walkthrough in emulator mode completed on 26 Nov 2026 (11 of 11 steps passed, with recorded limitations), after a password-length defect found in step M5 was fixed in the frontend; registration passwords containing hidden control characters (Unicode `Cc`) are now refused on both registration paths and the backend (JL9 change; owner browser retest pending) ([section 8 J](#j-m3b-1b-p1-b2bc--local-account-integration-emulator-only)). M3B-1B-P1-B2A (`29fcdd3`) trusted backend registration, **local emulator testing only**, **not deployed** ([section 8 I](#i-m3b-1b-p1-b2a--trusted-backend-registration-emulator-only)). M3B-1B-P1-B1 (`6e3675f`) backend account-access service for `account_access/{uid}` records, backend-only, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 26 November 2026 (MYT): M3B-2 Admin Disable & Enable accounts, **local emulators only, not committed, not deployed**: protected endpoints mounted only in emulator mode, coordinated with the account-access record, operation locks, audit records, resumable incomplete operations, and Manage Users controls; owner browser walkthrough on 26 Nov 2026: 13/13 conversational checkpoints passed (owner-reported); these do not map one-to-one to the 13 planned tests, of which 3 were verified, 7 partially verified, 1 not verified and 2 covered by automated tests only; Firestore rules rejection, audit-record contents and old refresh-token behaviour after Enable were not manually verified; post-implementation security audit (26 Nov 2026): PASS WITH LIMITATIONS, acceptable as a local-emulator development milestone, **not production-ready** (Medium findings M1–M3 open) ([section 8 K](#k-m3b-2--admin-disable--enable-accounts-emulator-only)). M3B-1B-P1-B2B/C (`7936909`) local account integration, **local emulators only, not deployed**: the backend mounts the registration route only when it starts in Firebase emulator mode, and the React dev server uses the emulators and backend registration only with `VITE_USE_FIREBASE_EMULATORS=true`; production behaviour unchanged; owner browser walkthrough in emulator mode completed on 26 Nov 2026 (11 of 11 steps passed, with recorded limitations), after a password-length defect found in step M5 was fixed in the frontend; registration passwords containing hidden control characters (Unicode `Cc`) are now refused on both registration paths and the backend (JL9 change; owner browser retest pending) ([section 8 J](#j-m3b-1b-p1-b2bc--local-account-integration-emulator-only)). M3B-1B-P1-B2A (`29fcdd3`) trusted backend registration, **local emulator testing only**, **not deployed** ([section 8 I](#i-m3b-1b-p1-b2a--trusted-backend-registration-emulator-only)). M3B-1B-P1-B1 (`6e3675f`) backend account-access service for `account_access/{uid}` records, backend-only, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -62,6 +62,7 @@ Every status claim in this document uses one of these labels.
 | Firebase emulator mode for local development and tests (Authentication and Firestore emulators, `demo-` project, loopback only; production mode refuses emulator settings); configuration recorded at initialization and re-checked before and after every token verification. Frontend (P1-B2B/C): the React dev server uses the emulators only with `VITE_USE_FIREBASE_EMULATORS=true`, never in a production build, and then with no production configuration value | `backend/core/firebase.py`, `backend/core/auth.py`, `firebase.json`, `frontend/src/firebase.js`, `frontend/src/utils/firebaseEmulator.js` | Repo-verified; Unit tests; Frontend unit tests; Emulator integration tests (sections 8 G and J) |
 | Account-access service (backend-only; its only caller is the emulator-only registration below): validates, reads and inspects `account_access/{uid}` records and creates one only if none exists, with the state taken from Firebase Authentication | `backend/services/account_access_service.py` | Repo-verified; Unit tests; Emulator integration tests (section 8 H) |
 | Trusted backend registration (**local emulator testing only**; `main.py` mounts the router only when the backend starts in emulator mode, and the route answers 404 outside emulator mode; the React registration page uses it only in emulator mode, and production registration still runs in the browser): creates the Auth account with the Admin SDK, then the `users/{uid}` profile, then the active access record | `backend/services/registration_service.py`, `backend/routes/registration.py`, `backend/main.py` | Repo-verified; Unit tests; Emulator integration tests (sections 8 I and J) |
+| Admin Disable & Enable student accounts (M3B-2; **local emulator testing only**: routes mounted only in emulator mode, 404 otherwise): `GET /api/admin/users/{uid}/access`, `POST .../disable`, `POST .../enable` (`require_admin`; never the caller's own account or an administrator); the access record is restricted before Auth on Disable and activated last on Enable; sessions revoked and `sessionsValidAfter` set on Enable; operation locks and audit records in backend-only collections; incomplete operations recorded and resumable; Account access panel with confirmation dialogs on User Details | `backend/services/account_action_service.py`, `backend/routes/admin_account_actions.py`, `backend/services/account_access_service.py`, `frontend/src/pages/admin/AdminUserDetail.jsx`, `frontend/src/components/admin/ConfirmDialog.jsx`, `frontend/src/utils/adminAccountActions.js` | Repo-verified; Unit tests; Frontend unit tests; Emulator integration tests (section 8 K); Manual (emulator mode, owner-reported, 26 Nov 2026: 13/13 conversational checkpoints; the planned tests only partly covered, see section 8 K); post-implementation security audit PASS WITH LIMITATIONS (local-emulator milestone; not production-ready) |
 | Browser "Seed Programs" button removed | `frontend/src/App.jsx` | Repo-verified |
 
 Apart from the shared grade-validation helper, the Admin navigation, verification, Manage Users and
@@ -86,6 +87,7 @@ AI output quality or OCR accuracy.
 | M3B-1B-P1-A — Firebase Authentication emulator foundation | `7ec0ecb` | 24 Nov 2026 | 7 | Authentication emulator on `127.0.0.1:9099`; explicit backend emulator mode (`demo-` project, loopback hosts, anonymous credential); production mode refuses emulator settings; immutable record of the initialised configuration, re-checked before and after every token verification (503 on mismatch); 31 new backend unit tests and 14 emulator integration tests (section 8 G). |
 | M3B-1B-P1-B1 — Backend account-access record service | `6e3675f` | 24 Nov 2026 | 4 | Backend-only service that validates, reads and inspects `account_access/{uid}` records and creates one only if none exists (atomic create, state from Firebase Authentication, never overwrites); no route; 23 new backend unit tests and 9 emulator integration tests (section 8 H). |
 | M3B-1B-P1-B2A — Trusted backend registration (emulator only) | `29fcdd3` | 24 Nov 2026 | 5 | Backend service and route that create the Auth account (Admin SDK), then the `users/{uid}` profile, then the active access record; strict input validation that never repeats the input; a partial failure disables the new account and returns 503 `REGISTRATION_INCOMPLETE`; router not mounted, 404 outside emulator mode; 24 new backend unit tests and 13 emulator integration tests (section 8 I). |
+| M3B-1B-P1-B2B/C — Local account integration (emulator only), with the JL9 password fix | `7936909` | 26 Nov 2026 | 15 | Registration route mounted only in emulator mode; React dev server on the emulators only with `VITE_USE_FIREBASE_EMULATORS=true`; emulator-mode registration through the backend and a login-time access check; password rule on both registration paths (6–128 characters, no control characters); 9 emulator integration tests; owner browser walkthrough 11/11 (section 8 J). |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -143,6 +145,21 @@ Recorded test results (not re-run for this documentation baseline):
   (5 new); emulator integration tests — 45 tests, `OK`; frontend unit tests — 120/120 (5 new); Firestore
   rules — 44/44 (production) and 100/100 (experimental); frontend production build — passed; lint of the
   changed frontend files — passed (pre-existing `Register.jsx` error unchanged); owner browser retest pending.
+- **M3B-2 (Admin Disable & Enable, emulator only; not committed when recorded):** backend tests — 193 tests,
+  `OK` (42 new); emulator integration tests — 55 tests, `OK` (the existing 45 and 10 new; the new module
+  passed 3 consecutive runs); frontend unit tests — 142/142 (22 new); Firestore rules — 44/44 (production)
+  and 100/100 (experimental), unchanged rules; frontend production build — passed (bundle scan unchanged);
+  lint of the changed frontend files — passed; mutation check — 17 of 17 weakened copies detected; end-to-end
+  HTTP check against scratch emulators — passed. The emulator suites ran on alternative ports through a
+  scratch configuration outside the repository, because the owner's own emulators were running (section 8 K).
+  Browser verification — not yet performed when these results were recorded; **owner browser walkthrough
+  on 26 Nov 2026: 13/13 conversational checkpoints passed** (owner-reported). They do not map one-to-one to the
+  13 planned tests: 3 verified, 7 partially verified, 1 not verified, 2 automated tests only (section 8 K).
+  **Post-implementation security audit (26 Nov 2026, read-only): PASS WITH LIMITATIONS.** Re-run during the
+  audit: backend tests — 193 tests, `OK`; frontend unit tests — 142/142; lint of the changed frontend files —
+  passed; emulator integration tests — 55 tests, `OK`; Firestore rules — 44/44 and 100/100 (scratch ports);
+  mutation check — 17 of 17 detected; frontend production build — passed; a scratch probe of refresh tokens
+  after Enable (finding M3). Findings M1–M3 (Medium) and L1–L7 (Low) are open (section 8 K).
 
 ## 3. Repository status at baseline
 
@@ -285,7 +302,7 @@ Programme data exists in three places, read by different parts of the system:
 | — | **M1.5C — Secure Gemini Integration (DEFERRED)** | Security patch done: browser-side Gemini OCR disabled. Remaining: React → authenticated FastAPI → Gemini API. | Not completed. Activation requires a provider-terms and privacy review (users under 18, personal data on SPM slips), rotation or revocation of the old key, and owner approval. Required before OCR returns and before any public deployment. |
 | 1 | M2 — Admin Dashboard and Sidebar | **Implemented.** Admin layout, sidebar, mobile navigation and logout; Admin access confirmed with `/api/admin/verify`. | Module cards are labelled "Coming soon"; no statistics. |
 | 2 | M3A — Manage Users (read-only) | **Implemented.** `require_admin` list and details endpoints using the Admin SDK; Manage Users and User Details pages. | Listing limits and missing-profile detection: see section 5. |
-| — | **M3B — Account actions (DEFERRED)** | Disable, enable and delete accounts. | Requires a separate security and deletion-design approval. Deletion must also remove `results` and `ai_assessments` (resolves S4, W1). |
+| — | **M3B — Account actions** | Disable, enable and delete accounts. | **M3B-2 Disable & Enable: implemented for the local emulators only** (section 8 K); not usable in production until the production requirements in sections 8 J and K are met. Delete remains deferred and requires a separate deletion-design approval; it must also remove `results` and `ai_assessments` (resolves S4, W1). |
 | 3 | M4 — Manage Programmes | Admin CRUD for programmes. | Decide the programme single source of truth and sync strategy first; guard the seeders. |
 | 4 | M5 — Manage Programme Criteria | Eligibility fields (`min_spm_credits`, `min_math_grade`, `min_bm_grade`, `min_bi_grade`, `requires_science`). | Consumed by `recommendation_service.py`. |
 | 5 | M6 — Manage Preparatory Resources | The 118 `preparatory_guideline` entries inside programme records. | Same data-consistency strategy as M4. |
@@ -302,6 +319,9 @@ endpoints, no actions on the caller's own account or on admin accounts, and an a
 that also removes `results` and `ai_assessments` (resolves S4 and W1), with partial-failure handling.
 The preconditions for the Disable, Enable and Delete actions, the required student self-delete fixes and
 the minimum reconciliation are listed in [section 8 J](#j-m3b-1b-p1-b2bc--local-account-integration-emulator-only).
+M3B-2 (Disable and Enable) is implemented for the local emulators ([section 8 K](#k-m3b-2--admin-disable--enable-accounts-emulator-only));
+after its browser verification and commit, the remaining M3B work is account deletion (with the student
+self-delete fixes) and the production requirements.
 M1.5C remains deferred: OCR is not operational and manual results entry remains supported. Before OCR
 returns or any public deployment: rotate or revoke the previously exposed key(s), remove the unused
 `VITE_OLLAMA_URL` from `frontend/.env`, resolve the Ollama base-URL discrepancy, complete the
@@ -314,9 +334,10 @@ A living technical record of the security behaviour of the completed Admin miles
 M1.5B, M2, M3A and the Admin sign-out hardening), of the experimental, **undeployed** M3B-1B-P0
 account-access guard (section F), of the M3B-1B-P1-A local emulator foundation (section G) and of the
 backend-only M3B-1B-P1-B1 account-access service (section H), of the emulator-only M3B-1B-P1-B2A
-trusted registration (section I) and of the emulator-only M3B-1B-P1-B2B/C local account integration
-(section J), based on the repository code and the recorded test results. It is
-**not** the final Development and Testing Report. Last recorded: 24 November 2026 (MYT).
+trusted registration (section I), of the emulator-only M3B-1B-P1-B2B/C local account integration
+(section J) and of the emulator-only M3B-2 Disable & Enable account actions (section K), based on the
+repository code and the recorded test results. It is **not** the final Development and Testing Report.
+Last recorded: 26 November 2026 (MYT).
 
 "Fail-closed" means that any failure to confirm identity or Admin status leaves the Admin area and
 Admin data unavailable. Frontend checks only decide what is displayed. Data is protected by
@@ -383,9 +404,9 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 
 | Evidence | Scope | Latest recorded result |
 |---|---|---|
-| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23), `test_registration.py` (34) | 151 tests, `OK` |
-| Backend emulator integration tests (M3B-1B-P1-A, P1-B1, P1-B2A, P1-B2B/C) | `backend/integration_tests/`: `test_auth_emulator.py` (14), `test_account_access_service.py` (9), `test_registration_emulator.py` (13) and `test_local_account_flow.py` (9) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 45 tests, `OK` |
-| Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18), `firebaseEmulator` (8), `registrationApi` (22), `accountAccess` (6) | 120/120 passed |
+| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23), `test_registration.py` (34), `test_account_actions.py` (42) | 193 tests, `OK` |
+| Backend emulator integration tests (M3B-1B-P1-A, P1-B1, P1-B2A, P1-B2B/C, M3B-2) | `backend/integration_tests/`: `test_auth_emulator.py` (14), `test_account_access_service.py` (9), `test_registration_emulator.py` (13), `test_local_account_flow.py` (9) and `test_account_actions_emulator.py` (10) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 55 tests, `OK` |
+| Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18), `firebaseEmulator` (8), `registrationApi` (22), `accountAccess` (6), `adminAccountActions` (22) | 142/142 passed |
 | Firestore emulator tests (production rules) | `firestore-tests/rules.test.mjs` against `firestore.rules`, run by `npm test` (12 suites, defined in `shared-rules-suite.mjs`) | 44/44 passed |
 | Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) | 100/100 passed |
 | Mutation testing (experimental, M3B-1B-P0) | The experimental suite re-run against deliberately weakened copies of the experimental rules (section F) | 19 of 20 weakenings detected; the undetected one removes a redundant check |
@@ -394,6 +415,7 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 | Manual (owner-reported) | M3A Manage Users browser verification | 10/10 |
 | Manual (owner-reported) | Admin sign-out hardening browser regression checks | 5/5 |
 | Manual (owner-reported) | M3B-1B-P1-B2B/C local walkthrough in emulator mode, steps M1–M11 (section J) | 11/11 passed, with limitations (M7, M10, M11; section J); one defect found in M5 and fixed |
+| Manual (owner-reported) | M3B-2 local walkthrough in emulator mode: 13 conversational checkpoints, mapped to the 13 planned tests (section K) | 13/13 conversational checkpoints passed. Planned tests: 3 verified, 7 partially verified, 1 not verified, 2 automated tests only. Firestore rules rejection, audit-record contents and old refresh-token behaviour after Enable not manually verified (section K) |
 | Manual (owner-reported) | Earlier browser smoke tests recorded in section 1 (for example, M1 Admin login, dashboard access and refresh) | See section 1 |
 
 Manual results are recorded per milestone; this register does not attribute individual behaviours to
@@ -411,7 +433,7 @@ inspection (A3, B3–B6).
 | E4 | The component wiring (`AdminLayout`, `ProtectedAdminRoute`, `AdminStatusPanel`, the Manage Users pages) has no rendered-component unit tests; that would need a test-renderer dependency. | Test-coverage gap | Open. |
 | E5 | Student-facing sign-out handling is outside the hardening patch: `ApiAuthErrorPanel.jsx` ignores a failed sign-out and then redirects; `Login.jsx` ignores a failed sign-out after a failed claim check; the student `Header.jsx` Logout has no error handling. | Security limitation (low) and future development task | Open; needs a separate approval. |
 | E6 | Project-wide lint: 21 errors and 2 warnings in 15 files not touched by M3A or the sign-out hardening (mostly unused variables; `react-hooks` findings in `DummyAI.jsx` and `Recommendation.jsx`). | Future development task (code quality) | Open. |
-| E7 | M3B account actions (disable, enable, delete) are not implemented; S4 and S5 remain open. | Future development task | Deferred pending a security and deletion-design approval. |
+| E7 | M3B account actions: Disable and Enable are implemented for the local emulators only (M3B-2, section K); Delete is not implemented; S4 and S5 remain open. | Future development task | Delete deferred pending a deletion-design approval; production use of Disable/Enable pending the requirements in sections J and K. |
 | E8 | A retry from the Admin layout's "Couldn't sign you out" panel is not tied to a verification run; in a rare overlap, a late failure could block a screen that had just been verified again. | Usability problem | Fails closed. Open. |
 | E9 | A failed manual Admin logout uses an alert and re-verification instead of the shared failure panel. | Usability problem and future development task | Open. |
 | E10 | Manage Users does not detect Firestore profiles without an Auth account, and scans at most 2,000 accounts per request (reported, not hidden). | Future development task | Open (section 5). |
@@ -1025,6 +1047,322 @@ below.
 | JL7 | Emulator results are not production evidence (section G). | Test-coverage gap | Open |
 | JL8 | One full integration run stopped in module set-up when the emulator reset request timed out (10 seconds); the re-run and a later run passed. The cause was not investigated. | Test flakiness | Open; watch for recurrence |
 | JL9 | Passwords may contain control characters (such as TAB) and leading or trailing spaces; each counts towards the 6–128 characters and is never trimmed. Characters that cannot be typed or seen in the masked field can make a password differ from what the student believes they chose (the M5 defect). Refusing control characters (refusing, never trimming) would be a change to the password policy. | Usability problem and policy decision | **Resolved (26 Nov 2026)** for control characters: Unicode category `Cc` is refused on both registration paths and the backend, without trimming ("Password cannot contain hidden control characters."; see "Password policy change (JL9)"). Spaces remain allowed by design; other invisible characters (such as zero-width spaces, category `Cf`) are not covered. The wider production password policy (section I) is still an owner decision. |
+
+### K. M3B-2 — Admin Disable & Enable Accounts (Emulator Only)
+
+> **Status: implemented and tested against the local Firebase emulators only; not committed, not deployed.
+> Owner browser walkthrough on 26 Nov 2026: 13/13 conversational checkpoints passed (owner-reported). They do not
+> map one-to-one to the planned tests B1–B13: 3 verified, 7 partially verified, 1 not verified, 2 automated tests
+> only (see "Actual Browser Walkthrough Results" and "Coverage of the planned tests"). Post-implementation security audit (26 Nov 2026):
+> PASS WITH LIMITATIONS — acceptable as a local-emulator development milestone; NOT production-ready (Medium
+> findings M1–M3 open; see "Post-implementation security audit").** The new routes exist only when the backend starts in
+> Firebase emulator mode; a production-mode backend has no account-changing endpoint, and the read-only M3A
+> routes are unchanged. No production account, claim, Firestore document or rules deployment was involved.
+> Delete is not implemented.
+
+**Purpose.** Let an administrator disable and enable student accounts from Manage Users, with the
+account-access record (section F) and Firebase Authentication kept consistent, earlier sessions blocked,
+and every operation either verified as complete or recorded as incomplete and resumable.
+
+**Endpoints** (`backend/routes/admin_account_actions.py`, mounted under `/api/admin/users`):
+
+| Method and path | Purpose | Notes |
+|---|---|---|
+| `GET /{uid}/access` | Access state for the UI: Auth status, the record (state, version, `sessionsValidAfter`), consistency issues, any unfinished operation, the account state and the allowed actions | Read-only. No email, name, claims or another administrator's uid (only `started_by_you`). |
+| `POST /{uid}/disable` | Disable a student account | 200 only after verification; body `{"outcome":"completed", "operation", "operation_id", "resumed_operation_id", "audit_recorded", "lock_released", "account"}` |
+| `POST /{uid}/enable` | Enable a disabled student account | As above; takes about 4–5 seconds (waits below) |
+
+Order of checks on every route: (1) emulator mode, else 404 `{"detail":"Not Found"}` before any token check;
+(2) Firebase initialised in emulator mode, else 503; (3) `require_admin` (401/403); (4) uid pattern (422); then the
+service. Errors: `{"code", "message"}`, with `operation`, `operation_id`, `failed_step` and `reason` for
+`OPERATION_INCOMPLETE`. Codes: 403 `SELF_ACTION_FORBIDDEN`, `ADMIN_TARGET_FORBIDDEN`; 404 `USER_NOT_FOUND`;
+409 `ACCESS_RECORD_UNSUPPORTED`, `ALREADY_DISABLED`, `ALREADY_ACTIVE`, `OPERATION_IN_PROGRESS`,
+`INCOMPLETE_OPERATION_PENDING`; 503 `ACCOUNT_ACTION_UNAVAILABLE` (nothing changed), `OPERATION_INCOMPLETE`
+(stopped part-way, recorded).
+
+**Account states and allowed actions** (computed by the server; the UI only shows them):
+
+| State | Condition | Allowed |
+|---|---|---|
+| `protected` | The caller's own account, or an account with the `admin: true` claim | none |
+| `unsupported` | Record missing, malformed, `deleting` or `deleted` | none (never created, repaired or reactivated) |
+| `in_progress` | A running operation lock with a valid lease | none |
+| `incomplete` | An unfinished operation (failed step recorded, or lease expired) | unfinished Disable: Disable (resume); unfinished Enable: Enable (resume) or Disable (cancel) |
+| `active` | Auth enabled, record `active` | Disable |
+| `disabled` | Auth disabled, record `disabled` | Enable |
+| `inconsistent` | Auth and the record disagree, no operation recorded | Disable or Enable |
+
+**Workflow** (`backend/services/account_action_service.py`). Every step is idempotent; a resumed operation
+continues from the current state.
+
+| Disable | Enable |
+|---|---|
+| 1. `restrict_record`: record `active` → `disabled` (Firestore access closes first) | 1–2. Normalise to fully disabled: `restrict_record`, `disable_auth` (only when resuming or inconsistent) |
+| 2. `disable_auth`: Auth account disabled | 3. `revoke_sessions`: wait 1.1 s, then revoke refresh tokens |
+| 3. `verify`: Auth disabled and record `disabled` | 4. `set_session_threshold`: `sessionsValidAfter` = Firestore server time (record still `disabled`) |
+| | 5. `settle`: wait 3 s (FL3: a sign-in within the guard's margin would be refused) |
+| | 6. `enable_auth`: Auth account enabled |
+| | 7. `activate_record`: record `disabled` → `active`, **last** |
+| | 8. `verify`: Auth enabled, record `active` with `sessionsValidAfter` |
+
+**Design decisions and findings**
+
+- *Enable activates the record last* (a change from the order sketched in section J, which put the record
+  before Auth). With this order a failure at any step leaves the record not `active`, so Firestore stays closed:
+  a failure at `enable_auth` leaves both disabled; a failure at `activate_record` leaves Auth enabled with the
+  record `disabled` (the student can sign in but cannot read their data; the backend accepts their new tokens,
+  JL1). The earlier order would have left an `active` record whose Auth account is disabled after a failure.
+- *Revocation margin (new finding, confirmed on the emulators).* The Admin SDK treats a token as revoked only if
+  its issue time (`iat`, set by Firebase Authentication) is earlier than the account's revocation time, both in
+  whole seconds (`firebase_admin/_auth_client.py:763`), so a token issued in the same second as the revocation
+  remains valid for the backend. Without a margin, a session created just before a resumed Enable passed the
+  backend check (integration test 7 failed in 1 of 2 runs with the margin set to 0). Enable therefore waits
+  1.1 s after Auth is confirmed disabled before revoking. The Firestore guard was not affected (its own
+  one-second margin, F4). This applies to production as well.
+  *Correction (post-implementation audit, 26 Nov 2026):* the revocation time is **not** necessarily Firebase's
+  time. `revoke_refresh_tokens` writes `valid_since = int(time.time())`, taken from the **backend host's clock**
+  (`firebase_admin/_auth_client.py:164`), while `iat` comes from Firebase Authentication's clock. The 1.1 s
+  margin covers same-second timing only when the two clocks agree, as on the emulators (one host clock). If the
+  backend clock is behind Firebase's by more than about 1.1 s, tokens issued shortly before the Disable could
+  survive the backend's revocation check; if it is ahead by more than about 4 s, fresh sign-ins after Enable
+  would be refused (fails closed). See M2. The guard's threshold (`sessionsValidAfter`) is Firestore server time
+  compared with `auth_time` (FL3) and does not use the backend clock.
+- *Disable does not revoke tokens:* a disabled account fails the backend's check (`check_revoked=True` also
+  checks the disabled state), cannot refresh tokens, and is refused by the guard; Enable always revokes first.
+- *Version checks:* each record change expects the version that the operation last saw and writes with a
+  precondition on the document's update time (`account_access_service.change_record_state`); a record changed by
+  anything else is never overwritten (reason `RECORD_CHANGED`).
+- *Locks:* `account_operations/{uid}`, created atomically (create-if-absent) with a 120-second lease. A running lock
+  refuses every action; after a failure the lock is kept as `incomplete` with the failed step and a reason code
+  (a lock whose lease expired counts as incomplete). The same action resumes it; Disable may take over an
+  unfinished Enable; Enable may not take over an unfinished Disable. A lock is taken over only with a
+  precondition, so two administrators cannot both take it; another operation's lock is never overwritten, even
+  temporarily. After the lock is acquired, the state is read again before anything changes.
+- *Audit:* `account_audit/{operationId}` is created before any account change (no audit record → no change), then
+  updated with the outcome.
+- *Reconciliation (downgrade only):* Disable on an account whose Auth is disabled but whose record is still
+  `active` only downgrades the record. `account_access_service.reconcile_access_record()` also handles a missing
+  Auth account (record `active` → `disabled`), never upgrades, and never touches `deleting`, `deleted`, missing or
+  malformed records; it is used by tests only until the scheduled sweep (deferred to the production migration).
+  The coordinated actions never create an `active` record with a disabled Auth account.
+
+**Operation records** (backend-only collections; the access record keeps exactly `state`, `version` and
+`sessionsValidAfter`; the experimental and production rules deny browser access to unknown collections):
+
+| Collection | Fields |
+|---|---|
+| `account_operations/{uid}` (lock) | `operationId`, `operation` (`disable`/`enable`), `actorUid`, `status` (`running`/`incomplete`), `leaseExpiresAt`, `failedStep`, `reason`, `previousOperationId`, `startedAt`, `updatedAt` |
+| `account_audit/{operationId}` | `operationId`, `operation`, `actorUid`, `targetUid`, `outcome` (`started`/`completed`/`incomplete`), `failedStep`, `reason`, `resumesOperationId`, `resumesOperation`, `before` and `after` (`{auth, record, version, sessionsValidAfterSet}`), `startedAt`, `finishedAt` |
+
+No email address, name, password, token, custom claim or academic data is stored or logged; logs contain uids,
+operation identifiers, steps and codes.
+
+| # | Protection | Evidence |
+|---|---|---|
+| K1 | Routes absent outside emulator mode; the guard runs before token verification | Backend unit (unset, `production`, unknown mode: 404, token never verified, service never called; `main.py` mounts the routes only in emulator mode); Emulator integration (test 9: production-mode application, 404, nothing changed) |
+| K2 | Administrators only; never the caller's own account or an administrator account | Backend unit (no token 401, student and non-boolean claims 403; self refused before Firebase is touched; administrator targets refused, nothing written); Emulator integration (tests 2, 3) |
+| K3 | Disable restricts Firestore before Auth; a disabled student cannot sign in; earlier tokens are refused by Firestore and the backend | Backend unit (event order); Emulator integration (test 1) |
+| K4 | Enable revokes, sets the threshold, waits and activates the record last; earlier **ID tokens** stay blocked by Firestore and the backend; a fresh sign-in works. *Corrected (post-implementation audit, 26 Nov 2026):* earlier sessions are **not** fully blocked on the backend in the emulator: a **refresh token** issued before the Disable is refused while the account is disabled (`USER_DISABLED`), but after Enable it can still be exchanged for a new ID token, which the backend accepts (`/api/auth/me` 200); Firestore still refuses it (403; threshold). Whether production refuses revoked refresh tokens is unverified (GL1). See M3. | Backend unit (event order including both waits); Emulator integration (tests 1, 7: old ID token → Firestore 403, backend 401; fresh sign-in → 200); audit scratch probe (26 Nov 2026; not a repository test): pre-Disable refresh token after Enable → refresh 200, backend 200, Firestore 403 |
+| K5 | A failure at any step never leaves an `active` record, is reported as `OPERATION_INCOMPLETE`, is recorded on the lock and in the audit, and can be resumed | Backend unit (failure injected at each Enable step and at both Disable steps; resume; Disable cancelling an Enable); Emulator integration (tests 6, 7) |
+| K6 | Missing, malformed and deletion-state records are refused and left unchanged | Backend unit; Emulator integration (test 4) |
+| K7 | Concurrent and repeated actions change the account once | Backend unit (12 threads; a lock appearing between the check and the acquisition is left untouched; a lock taken over concurrently is refused); Emulator integration (test 5: 6 concurrent requests) |
+| K8 | Records changed by anything else are never overwritten | Backend unit (change after the check: version mismatch; change just before the write: precondition) |
+| K9 | No change without an audit record; a missing audit outcome or lock release is reported, not hidden | Backend unit |
+| K10 | Reconciliation only downgrades | Backend unit (all record and Auth combinations); Emulator integration (test 8, including a deleted Auth account) |
+| K11 | Responses and logs contain no personal data | Backend unit (allow-listed fields; email sentinel never logged or returned); scratch HTTP check (server log contained no test password or email) |
+| K12 | Only the emulators are used | Emulator integration (test 10) |
+
+**Mutation check** (scratch, one process per mutation; repository files not edited): 17 of 17 weakened copies
+of the service, the record primitives and the routes were detected by the unit tests, including: Disable
+changing Auth before the record; Enable activating the record before Auth; no revocation, no revocation margin,
+no settle wait, no threshold; administrators not protected; the self check only after Firebase is touched; no
+version check; no precondition on record writes; running locks taken over; leases that never expire; Enable
+taking over an unfinished Disable; a lock kept when the audit record cannot be created; unsupported records
+allowed; reconciliation that upgrades; and routes available outside emulator mode. Two of these (running locks
+and Enable over an unfinished Disable at takeover) were first missed and led to the test "a lock that appears
+after the check is never touched".
+
+**Admin UI** (User Details → **Account access** panel; `frontend/src/pages/admin/AdminUserDetail.jsx`,
+`frontend/src/components/admin/ConfirmDialog.jsx`, `frontend/src/utils/adminAccountActions.js`):
+state badge and explanation (active, disabled, needs attention, incomplete change with the stopped step and
+reason, change in progress, protected, not available); buttons only from the server's allowed actions and never
+for administrators or the caller (Disable account, Enable account, Resume disable, Resume enable); a modal
+confirmation dialog (focus on Cancel, Escape and backdrop cancel, not dismissible while running); loading labels
+("Disabling…", "Enabling…"), buttons disabled while an action runs or the state reloads, and a submission guard
+against double clicks; success, warning and error messages (an unreachable server is never reported as
+"nothing changed"); the page's account details refresh after a change while staying visible. When the server
+does not offer account actions (production mode), the panel says so. The browser never calls Firebase to
+change accounts. The list page is unchanged apart from its description; its Active/Disabled badge reflects
+Firebase Authentication only (incomplete operations are shown on User Details).
+
+**Running locally.** As in section J (steps 1–4, with the experimental rules loaded). Then create a dedicated
+emulator administrator (emulator only: the URLs are the local emulator and `Bearer owner` works only there; no
+endpoint can create administrators):
+
+```
+$admin = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key' -ContentType 'application/json' -Body '{"email":"admin1@example.test","password":"<test password>","returnSecureToken":true}'
+$claims = @{ localId = $admin.localId; customAttributes = '{"admin":true}' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/demo-route2unikl/accounts:update' -Headers @{Authorization='Bearer owner'} -ContentType 'application/json' -Body $claims
+```
+
+List audit records:
+`(Invoke-RestMethod -Uri 'http://127.0.0.1:8080/v1/projects/demo-route2unikl/databases/(default)/documents/account_audit' -Headers @{Authorization='Bearer owner'}).documents | ForEach-Object { '{0} {1} {2} step={3}' -f $_.fields.startedAt.timestampValue, $_.fields.operation.stringValue, $_.fields.outcome.stringValue, $_.fields.failedStep.stringValue }`
+
+These commands were checked in a scratch run on alternative ports (26 Nov 2026), together with an
+emulator-mode backend on a scratch port: admin verification 200; CORS preflight for POST with Authorization
+from `http://localhost:5173` allowed; access, Disable and Enable over HTTP (Enable took about 4 s); self-disable
+and a student caller 403; the server log contained no test password or email.
+
+**Manual browser verification plan (not run as written: the owner's walkthrough on 26 Nov 2026 used its own 13 conversational checkpoints; the coverage of each planned test is given below).** Use example
+addresses and test passwords only. Use a normal window for the administrator and a private window for the student.
+
+| # | Step | Expected |
+|---|---|---|
+| B1 | Prepare: section J steps 1–4 with the experimental rules; create the administrator (above); register two students in the app (S1 SPM leaver, S2 Form 4/5) | Both registrations succeed |
+| B2 | Administrator: log in → Manage Users | The administrator and both students are listed |
+| B3 | Open your own account's details | Account access: "Protected", your own account; no buttons |
+| B4 | Open S1's details | "Active"; "Disable account" button |
+| B5 | Private window: log in as S1; open the profile page | Profile loads |
+| B6 | Administrator: Disable account → press Escape; then Disable account → Cancel; then Disable account → confirm | Escape and Cancel close the dialog without change; confirming shows "Disabling…", then "Account disabled"; the badge and the Status row show Disabled; the panel offers "Enable account" |
+| B7 | Private window: without reloading, open the profile page through the navigation; then sign out and try to log in as S1 | Profile data does not load; login shows the disabled-account message |
+| B8 | Administrator: Enable account → confirm | "Enabling…" for about 4–5 seconds, then "Account enabled"; badge Active |
+| B9 | Private window: log in as S1 again | Login succeeds and the profile loads |
+| B10 | Administrator: on S2, click Disable account → confirm, and click the confirm button again quickly | One change only (the second click has no effect); list the audit records: one `disable completed` for S2 |
+| B11 | Make S2 inconsistent outside the app: enable S2's Auth account directly (section J helper "Disable the Auth account" with `"disableUser":false`); refresh S2's details | "Needs attention" with the explanation; Disable account and Enable account offered; Disable completes it (Disabled) |
+| B12 | Stop the backend; click Refresh in the panel; start the backend again and click Refresh | "Can't reach the Route2UniKL server…", then the current state again |
+| B13 | Private window: as S1, open `http://localhost:5173/admin/users` | Redirected away from the admin area (existing guard); the actions are server-protected (K2) |
+
+Incomplete operations cannot be produced from the browser without fault injection; they are covered by the
+automated tests (K5) and their display by the frontend unit tests.
+
+**Actual Browser Walkthrough Results** (owner-reported, 26 Nov 2026; local emulators, `demo-route2unikl`). The
+walkthrough used its own 13 conversational checkpoints, labelled B1–B13 in the conversation. **These labels do
+not correspond to the planned tests B1–B13 above**; the coverage of each planned test is given in the next table.
+All 13 conversational checkpoints were reported as passed.
+
+| Conversational checkpoint | What was verified (owner-reported) |
+|---|---|
+| Walkthrough B1 | The JL9 test student's User Details showed "Active" and the "Disable account" button. |
+| Walkthrough B2 | The Disable confirmation dialog showed the expected warning. |
+| Walkthrough B3 | Disable succeeded: the status became "Disabled" and "Enable account" appeared. |
+| Walkthrough B4 | The Enable confirmation dialog showed the expected warning about sessions. |
+| Walkthrough B5 | Enable succeeded: the status became "Active" and "Disable account" reappeared. |
+| Walkthrough B6 | The re-enabled student signed in and opened the profile. Before this check, the student's password was reset with the local Auth emulator. |
+| Walkthrough B7 | The current administrator's own account showed "Protected", with no Disable or Enable action. |
+| Walkthrough B8 | A second local-emulator administrator account showed "Protected", with no Disable or Enable action. |
+| Walkthrough B9 | With the student already signed in, the administrator disabled the account: the existing student session showed a disabled-account message, and a fresh login attempt was refused. |
+| Walkthrough B10 | The Disabled status persisted after refreshing the administrator's browser page. |
+| Walkthrough B11 | An unauthenticated Admin API request returned `{"detail":"Not authenticated."}`; its HTTP status was not independently recorded (in code this response is HTTP 401, `backend/core/auth.py`). |
+| Walkthrough B12 | An authenticated non-administrator request to the Admin API returned HTTP 403. |
+| Walkthrough B13 | An independent lookup in the Auth emulator showed `disabled: True` for the JL9 test student. |
+
+After testing, the owner re-enabled the JL9 test student.
+
+**Coverage of the planned tests** (from the walkthrough evidence above). VERIFIED: the planned expectation was
+observed. PARTIALLY VERIFIED: only part of it was observed. NOT VERIFIED: no manual check, and no automated test
+covers the planned browser behaviour. AUTOMATED TEST ONLY: not observed in the browser; covered by automated tests.
+
+| Planned test | Status | Evidence and gaps |
+|---|---|---|
+| B1 Prepare (experimental rules, administrator, two new students S1 and S2) | PARTIALLY VERIFIED | An administrator account and the JL9 test student were used (walkthrough B1, B7). Registering S1 and S2 was not recorded (the JL9 test student is an earlier account, section J), and whether the experimental rules were loaded into the emulator was not recorded. |
+| B2 Administrator login → Manage Users lists the administrator and both students | PARTIALLY VERIFIED | Administrator login and access to User Details are implied by walkthrough B1 and B7; the content of the list was not recorded. |
+| B3 Own account → "Protected", no buttons | VERIFIED | Walkthrough B7. Walkthrough B8 also showed a second administrator as "Protected" (beyond the plan). |
+| B4 S1's details → "Active", "Disable account" | VERIFIED | Walkthrough B1, with the JL9 test student in place of S1. |
+| B5 Student signs in; profile loads | PARTIALLY VERIFIED | Walkthrough B9 records that the student was already signed in before the Disable; the profile loading at that point was not recorded. |
+| B6 Disable: Escape and Cancel close without change; confirm → "Disabling…", "Account disabled"; badge and Status row Disabled; "Enable account" offered | PARTIALLY VERIFIED | Walkthrough B2 (dialog warning), B3 (status Disabled; "Enable account" appeared), B10 (persisted after refresh). The owner also observed the success message "Account disabled. The account has been disabled." Escape, Cancel and the "Disabling…" loading label were not verified; the Status row was not recorded. |
+| B7 Earlier session: profile data does not load (Firestore guard); fresh login shows the disabled-account message | PARTIALLY VERIFIED | Walkthrough B9: the existing session showed a disabled-account message and a fresh login was refused; walkthrough B13: Auth emulator `disabled: True`. The Firestore part is **AUTOMATED TEST ONLY**: the message seen is application-level (the backend's disabled-account refusal in `backend/core/auth.py`, or the Firebase SDK), not evidence that Firestore rules rejected the earlier session (K3; integration test 1; rules suite F). |
+| B8 Enable: "Enabling…" for about 4–5 s, "Account enabled", badge Active | PARTIALLY VERIFIED | Walkthrough B4 (dialog warning about sessions) and B5 (status Active; "Disable account" reappeared). The owner also observed the success message "Account enabled. The account has been enabled. The student must sign in again." The "Enabling…" loading label and the operation duration were not verified. |
+| B9 Student logs in again; profile loads | VERIFIED | Walkthrough B6. The password had first been reset with the local Auth emulator, so this shows only that a fresh sign-in works after Enable; it says nothing about earlier sessions (a password change can itself end earlier sessions in Firebase Authentication; not checked on the emulator). |
+| B10 Double click on confirm → one change; the audit records list one `disable completed` | NOT VERIFIED | Not performed. The backend's single change under concurrent requests (K7) and the audit records (K9; integration tests 1 and 5–7) are covered by automated tests, but the browser's double-submission guard has no automated test (KL6), and the audit records were not inspected manually. |
+| B11 Inconsistent account → "Needs attention"; Disable completes it | AUTOMATED TEST ONLY | Not performed in the browser. Backend unit tests (states and allowed actions; actions from inconsistent states), integration test 8 (Auth disabled outside the application → Disable downgrades the record), frontend unit tests (texts). |
+| B12 Backend stopped → "Can't reach the Route2UniKL server…"; current state after restart | AUTOMATED TEST ONLY | Not performed in the browser. Frontend unit tests cover the message mapping only (no rendered-component test). |
+| B13 Student opens the admin area → redirected; actions server-protected | PARTIALLY VERIFIED | Server-side protection: walkthrough B12 (non-administrator → HTTP 403) and B11 (unauthenticated → "Not authenticated."). The browser redirect away from `/admin/users` was not recorded. |
+
+Of the 13 planned tests: 3 VERIFIED, 7 PARTIALLY VERIFIED, 1 NOT VERIFIED, 2 AUTOMATED TEST ONLY. **"13/13" refers
+to the conversational checkpoints only, not to the planned tests.**
+
+**Not manually verified:**
+
+- Firestore rules rejection: **not independently observed** during the manual browser walkthrough. Whether the
+  experimental rules were loaded was not recorded, and the disabled-account message seen is application-level.
+  Firestore enforcement rests on the automated tests only.
+- The content of the audit records.
+- Old refresh-token behaviour after Enable (M3), and old ID tokens after Enable.
+- The access record's state independently of the application. The panel's "Disabled" means the backend read
+  both Auth and the record as disabled; walkthrough B13 checked the Auth state only.
+- Incomplete-operation handling (not producible from the browser without fault injection).
+- Production behaviour.
+
+**Post-implementation security audit (26 Nov 2026; read-only; no file changed).** Verdict: **PASS WITH
+LIMITATIONS.** The audit reviewed every M3B-2 change and the Git diff against `7936909`, the experimental and
+production rules, and the installed Firebase Admin SDK, and re-ran the automated checks: backend unit 193 `OK`;
+frontend unit 142/142; lint passed; emulator integration 55/55 and Firestore rules 44/44 and 100/100 (scratch
+ports, so the owner's emulator data was untouched); mutation check 17/17; production build passed; plus a scratch
+probe of refresh tokens after Enable (M3). Not run: the repository commands on the default ports (occupied by the
+owner's emulators), browser automation, and anything against production. Confirmed during the audit: production
+gating (`backend/main.py:41`; `backend/routes/admin_account_actions.py:80–89`, 404 before any token check, then
+`require_admin`); self and administrator protection (`backend/services/account_action_service.py:546`, `:230`,
+`:275–290`); the Disable and Enable step order (`:491–503`); version and precondition checks; atomic locks; an
+audit record before any change (`:563–568`); the guard on every allow of the three student collections
+(`firestore-tests/account-access.experimental.rules:169–241`); and catch-all denial of `account_operations` and
+`account_audit` in both rules files (experimental `:268–269`; `firestore.rules:189–190`). No Critical or High
+finding.
+
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| M1 | Medium | **Lock lease not longer than the worst-case operation; Firebase Authentication writes are not fenced.** `LEASE_SECONDS = 120` (`account_action_service.py:69`) and an expired lease counts as incomplete (`:216`), but one Admin SDK call can take up to 120 s per attempt with up to 4 retries on HTTP 500/503 (`firebase_admin/_http_client.py:42–50`). Another administrator can therefore take over while the first operation still runs. Record writes stay version-checked, but Auth writes (`:438–445`, `:459–469`) are not, so a late Auth change could leave Auth enabled with the record `disabled` (Firestore closed; the backend accepts the student's tokens, JL1). | Open; not tested. Must be resolved before production. |
+| M2 | Medium | **Revocation time from the backend host clock.** `valid_since = int(time.time())` (`firebase_admin/_auth_client.py:164`) is compared with Firebase-issued `iat` (`:763`); the 1.1 s margin assumes the two clocks agree (see the corrected design note above). The emulators share one host clock, so the tests cannot show the problem. | Open; production concern (clock synchronisation and a production check needed). |
+| M3 | Medium | **An old refresh token restores backend access after Enable in the emulator.** Audit probe: a refresh token from before the Disable was refused while disabled (`USER_DISABLED`), but after Enable it was exchanged for a new ID token (200), which the backend accepted (`/api/auth/me` 200) and Firestore refused (403). Old ID tokens: backend 401, Firestore 403. K4 has been corrected. Production refusal of revoked refresh tokens is unverified (GL1; emulator behaviour in section G). | Open; production verification required. |
+| L1 | Low | **Frontend HTTP 403 mapping.** `SELF_ACTION_FORBIDDEN` and `ADMIN_TARGET_FORBIDDEN` are HTTP 403, and `authFetch` turns every 401/403 into `ApiAuthError` without the code (`frontend/src/utils/apiClient.js:87–93`), so the panel shows "Admin access not confirmed" (`frontend/src/utils/adminAccountActions.js:174–176`); the specific messages (`:164–165`) are unreachable. The unit test feeds these codes with HTTP 409 (`adminAccountActions.test.js:207–214`), a false assumption. Reachable only through a race or a direct request (the buttons are hidden). No access is granted. | Open |
+| L2 | Low | **No automatic sign-out after a 401 during an action.** The panel assumes the page request handles an expired session (`frontend/src/pages/admin/AdminUserDetail.jsx:78`), but a failed action only reloads the panel (`:102`), unlike the automatic sign-out on Manage Users (B1). The backend refuses every request. | Open |
+| L3 | Low | **Audit accuracy gaps.** (a) An audit record whose creation outcome is unknown, or an operation interrupted by a crash, stays `started` with no outcome (`account_action_service.py:563–568`, `:593–604`), so `started` can mean "never ran" or "stopped part-way"; a resumed operation gets a new audit record and the earlier one stays `started`. (b) A failure while reading the state in the `verify` step is always recorded as `STORE_UNAVAILABLE`, even when the Auth account was removed or Auth was unavailable (`:580–583`). (c) Refused requests are only logged (KL4), and changes made outside the application are not audited. | Open |
+| L4 | Low | **Phantom lock.** A lock create whose outcome is unknown (`:311–317`) can leave a running lock: the account is blocked for up to 120 s, then shown as an incomplete operation with no failed step and no audit record. No account change is made. | Open |
+| L5 | Low | **Forged tokens in emulator mode.** The emulator accepts unsigned tokens (GL2), so any local process can forge an administrator token for an emulator account and disable or enable emulator accounts. Loopback and emulator data only. | Accepted for local development (GL2, GL8) |
+| L6 | Low | **Resume shortcut.** A resumed Enable skips revocation and a new threshold when the account already looks fully enabled with any `sessionsValidAfter` (`:506–518`); reachable only if something outside the application changes the record. | Informational |
+| L7 | Low | **No rate limiting.** Each Enable holds a server worker thread for about 4–5 s. | Informational |
+
+**Untested cases** (no automated or manual test covers them):
+
+- Lock lease expiry while an operation is still running (M1).
+- Refresh tokens after Enable (M3): observed only in the audit's scratch probe; no repository test.
+- Frontend HTTP 403 error mapping for action responses through the real `authFetch` path (L1): the unit tests
+  use HTTP 409.
+- Also: the target account gaining the administrator claim during an operation; simultaneous Disable and Enable
+  on the emulators (unit tests only); rendered-component behaviour (KL6); production behaviour (KL8).
+
+**Readiness.**
+
+- *Local-emulator development milestone:* acceptable to commit to `feature/admin-module` (audit verdict PASS WITH
+  LIMITATIONS). None of the findings can affect production: the account-changing routes exist only in emulator
+  mode, no production-mode code path writes to Firebase, and the production rules, `firebase.json` and production
+  data are unchanged.
+- *Production:* **not ready.** M1–M3 must be resolved or verified, together with the pending production
+  requirements below and in section J. Local test results are not production evidence (KL8).
+
+**Pending production requirements** (none implemented; each needs separate approval): everything listed in
+section J (backfill of access records, guard deployment after the `auth_time` canary, production registration
+through the backend, reconciliation sweep, self-delete fix, backend deployment); mounting these routes in
+production mode; a decision on whether backend routes should also consult the record (JL1); monitoring of
+incomplete operations and audit retention; a production check of the revocation-time comparison and of Firestore
+precondition behaviour under contention. Added by the post-implementation audit (26 Nov 2026): resolution of M1
+(a lease longer than the worst-case operation, or lock-ownership checks before Firebase Authentication writes);
+M2 (clock synchronisation of the backend host, or a revocation time taken from Firebase, verified in production);
+M3 (a production check that revoked refresh tokens are refused after Enable).
+
+**Limitations**
+
+| # | Limitation | Type | Status |
+|---|---|---|---|
+| KL1 | The backend does not consult the access record (JL1): after a Disable that stopped before `disable_auth`, or an Enable that stopped before `activate_record`, the backend still accepts the student's tokens while Auth is enabled; Firestore stays closed. | Boundary (by design) | Open; decide with JL1 |
+| KL2 | Leases use the backend's clock and assume one backend instance; an operation running longer than 120 seconds could be taken over. Operations take seconds. | Design constraint | Accepted for local use; review before production. Audit: a single Admin SDK call can exceed the lease, and Auth writes are not fenced (M1, open). |
+| KL3 | Enable takes about 4–5 seconds in one request (1.1 s and 3 s waits). | Usability | Accepted |
+| KL4 | The audit records have no admin page; they are read with the helper command. Refused requests are logged, not audited. | Future development task | Open |
+| KL5 | The list page shows Firebase Authentication status only; incomplete operations are shown on User Details. | Usability | Accepted |
+| KL6 | No rendered-component tests (E4); the dialog and panel wiring rely on code inspection and the browser plan. | Test-coverage gap | Owner walkthrough: 13/13 conversational checkpoints; planned tests only partly covered (see "Coverage of the planned tests"); still no rendered-component tests |
+| KL7 | The automated detection of the revocation margin is probabilistic (same-second timing); the unit tests pin the waits. | Test-coverage gap | Accepted |
+| KL8 | Emulator results are not production evidence (contention, preconditions, revocation and clock behaviour). | Test-coverage gap | Open (see M2 and M3) |
+| KL9 | The emulator suites ran on alternative ports (scratch configuration outside the repository) because the owner's emulators were running; the repository command uses the ports in `firebase.json`. | Test process | Recorded |
+| KL10 | Post-implementation audit findings M1–M3 (Medium) and L1–L7 (Low) and the untested cases listed under "Post-implementation security audit". | Security limitations and test-coverage gaps | Open (L5 accepted; L6, L7 informational); none resolved |
 
 ### Future Admin Module report
 

@@ -144,13 +144,15 @@ export const getPageRange = ({ page, pageSize, total }) => {
   return from > total ? { from: 0, to: 0 } : { from, to: Math.min(total, page * pageSize) };
 };
 
-// Error thrown for non-success responses from the Manage Users endpoints.
+// Error thrown for non-success responses from the Manage Users endpoints. `detail` holds allow-listed
+// identifiers and codes from the response (M3B-2 account actions: operation, step and reason), or null.
 export class AdminUsersRequestError extends Error {
-  constructor(status, code = null) {
+  constructor(status, code = null, detail = null) {
     super(`Manage Users request failed (HTTP ${status})`);
     this.name = 'AdminUsersRequestError';
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
