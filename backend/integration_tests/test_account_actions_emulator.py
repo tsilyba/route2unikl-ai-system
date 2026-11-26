@@ -111,7 +111,7 @@ class AccountActionEmulatorTests(unittest.TestCase):
         self.assertEqual(self.read_profile(old_token, student.uid), 200)
 
         state = self.call("get", student.uid, "access").json()
-        self.assertEqual((state["state"], state["allowed_actions"]), ("active", ["disable"]))
+        self.assertEqual((state["state"], state["allowed_actions"]), ("active", ["disable", "delete"]))
 
         response = self.call("post", student.uid, "disable")
         self.assertEqual(response.status_code, 200, response.text)
@@ -170,12 +170,12 @@ class AccountActionEmulatorTests(unittest.TestCase):
         self.db.collection("account_access").document(malformed.uid).update({"updatedAt": SERVER_TIMESTAMP})
         deleting = self.registered_student()
         self.db.collection("account_access").document(deleting.uid).update({"state": "deleting", "version": 2})
-        for uid in (no_record.uid, malformed.uid, deleting.uid):
+        for uid, code in ((no_record.uid, "ACCESS_RECORD_UNSUPPORTED"), (malformed.uid, "ACCESS_RECORD_UNSUPPORTED"),
+                          (deleting.uid, "ACCOUNT_DELETION_IN_PROGRESS")):  # M3B-3: only Delete continues a deletion
             for action in ("disable", "enable"):
                 with self.subTest(uid=uid, action=action):
                     response = self.call("post", uid, action)
-                    self.assertEqual((response.status_code, response.json()["detail"]["code"]),
-                                     (409, "ACCESS_RECORD_UNSUPPORTED"))
+                    self.assertEqual((response.status_code, response.json()["detail"]["code"]), (409, code))
             self.assertFalse(self.disabled(uid))
         self.assertIsNone(self.record(no_record.uid), "no record is created")
         self.assertIn("updatedAt", self.record(malformed.uid), "a malformed record is not repaired")

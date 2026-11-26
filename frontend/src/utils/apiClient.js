@@ -4,13 +4,14 @@
 // Every request carries the signed-in user's Firebase ID token as
 // `Authorization: Bearer <token>`; the backend verifies it on each call.
 import { auth } from '../firebase';
+import { AUTH_SERVICE_UNAVAILABLE, authErrorFields } from './apiErrors.js';
 
 export const API_BASE_URL = 'http://localhost:8000';
 
 // Machine-readable code sent by the backend (core/auth.py) with HTTP 503 when
 // token verification cannot be completed. Also used when the browser cannot
 // obtain a token at all. Must match AUTH_SERVICE_UNAVAILABLE in the backend.
-export const AUTH_SERVICE_UNAVAILABLE = 'AUTH_SERVICE_UNAVAILABLE';
+export { AUTH_SERVICE_UNAVAILABLE };
 
 // Firebase client error codes meaning the stored session is no longer valid.
 const SESSION_ENDED_CODES = new Set([
@@ -23,6 +24,8 @@ const SESSION_ENDED_CODES = new Set([
 /**
  * Raised for authentication/authorization failures:
  * - status 401 / 403: the request was rejected (sign-in invalid or not allowed);
+ *   `code` is the backend's machine-readable code when it sent one (for example
+ *   ADMIN_TARGET_FORBIDDEN or ACCOUNT_DELETED), otherwise null (see apiErrors.js);
  * - status 503 with code AUTH_SERVICE_UNAVAILABLE: sign-in could not be verified
  *   right now (temporary outage), so the request was NOT authenticated.
  * Callers must surface this to the user and must NOT replace it with
@@ -85,12 +88,8 @@ export async function authFetch(path, { headers, ...options } = {}) {
   });
 
   if (response.status === 401 || response.status === 403) {
-    const detail = await readErrorDetail(response);
-    throw new ApiAuthError(
-      response.status,
-      (typeof detail === 'string' && detail) ||
-        (response.status === 401 ? 'Authentication required.' : 'Access denied.')
-    );
+    const { message, code } = authErrorFields(response.status, await readErrorDetail(response));
+    throw new ApiAuthError(response.status, message, code);
   }
 
   if (response.status === 503) {

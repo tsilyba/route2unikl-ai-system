@@ -8,14 +8,19 @@ well-formed and in state 'active'. This module reads, creates and (for the
 M3B-2 admin account actions) changes these records with the Firebase Admin SDK
 through core.firebase, which re-validates the Firebase configuration on every
 call. Firestore Security Rules do not apply to it. Its callers are the
-emulator-only trusted registration (M3B-1B-P1-B2A) and the emulator-only admin
-account actions (services/account_action_service.py, M3B-2).
+emulator-only trusted registration (M3B-1B-P1-B2A), the emulator-only admin
+account actions (services/account_action_service.py, M3B-2 and M3B-3) and the
+emulator-only student-data access check (core/student_access.py, M3B-3).
 
 change_record_state() changes a well-formed record's state with version + 1,
 only if the stored document is unchanged since it was read (an optimistic
-precondition on its update time). reconcile_access_record() is the
-downgrade-only correction: an 'active' record whose Auth account is disabled or
-missing becomes 'disabled'; nothing is ever upgraded.
+precondition on its update time), and only along the allowed transitions:
+deletion is irreversible ('deleting' can only become 'deleted'; 'deleted', the
+account-deletion tombstone, never changes). delete_documents_during_deletion()
+deletes a student's documents and fences them with the record in one atomic
+batch. reconcile_access_record() is the downgrade-only correction: an 'active'
+record whose Auth account is disabled or missing becomes 'disabled'; nothing is
+ever upgraded.
 
 Record schema, exactly as the guard requires:
     state               'active' | 'disabled' | 'deleting' | 'deleted'
@@ -43,7 +48,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
 from firebase_admin import auth as firebase_auth
 from google.api_core import exceptions as google_exceptions
@@ -275,6 +280,16 @@ def read_record_snapshot(uid: str) -> RecordSnapshot:
     return _read_snapshot(_db(), uid)
 
 
+# Allowed record transitions. Deletion is irreversible: a 'deleting' record can only become 'deleted', and a
+# 'deleted' record (the account-deletion tombstone, M3B-3) is never changed again.
+_TRANSITIONS = {
+    "active": ("disabled", "deleting"),
+    "disabled": ("active", "disabled", "deleting"),
+    "deleting": ("deleted",),
+    "deleted": (),
+}
+
+
 def change_record_state(uid: str, snapshot: RecordSnapshot, *, state: str,
                         set_threshold: bool = False) -> RecordChange:
     """Set a well-formed record's state with version + 1, only if it is unchanged since `snapshot`.
@@ -283,13 +298,15 @@ def change_record_state(uid: str, snapshot: RecordSnapshot, *, state: str,
     by anyone since it was read is never overwritten (STALE_RECORD; nothing written). With
     set_threshold, sessionsValidAfter becomes the Firestore server time of this write. Only the guard's
     fields are written; an existing sessionsValidAfter is kept. Never retried automatically: a write whose
-    outcome is unknown is STORE_UNAVAILABLE.
+    outcome is unknown is STORE_UNAVAILABLE. Only the transitions in _TRANSITIONS are allowed.
     """
     uid = _require_valid_uid(uid)
-    if state not in ("active", "disabled"):
-        raise ValueError("Only 'active' and 'disabled' can be set here")
     if snapshot.lookup.status != "valid" or snapshot.update_time is None:
         raise ValueError("Only a stored, well-formed record can be changed")
+    if state not in _TRANSITIONS.get(snapshot.lookup.record.state, ()):
+        raise ValueError(f"Transition {snapshot.lookup.record.state!r} -> {state!r} is not allowed")
+    if set_threshold and state != "disabled":
+        raise ValueError("A session threshold is only set on a disabled record")
     version = snapshot.lookup.record.version + 1
     changes = {"state": state, "version": version}
     if set_threshold:
@@ -309,6 +326,41 @@ def change_record_state(uid: str, snapshot: RecordSnapshot, *, state: str,
     logger.info("Account access record changed (uid=%s, state=%s, version=%s, threshold_set=%s)",
                 uid, state, version, set_threshold)
     return RecordChange(version, result.update_time)
+
+
+def delete_documents_during_deletion(uid: str, snapshot: RecordSnapshot, collections: Sequence[str]) -> RecordChange:
+    """For a record in 'deleting' (M3B-3): ONE atomic Firestore batch deletes `{collection}/{uid}` for each
+    collection and increments the record's version (state unchanged), only if the record is unchanged since
+    `snapshot`. Either every write is applied or none is.
+
+    The record update is the batch's fence: a record changed by anyone since it was read makes the whole
+    batch fail (STALE_RECORD), so no data is deleted. Deleting a document does not delete its
+    subcollections; the caller checks for them first. Never retried automatically: an unknown outcome is
+    STORE_UNAVAILABLE (the caller re-reads to find out).
+    """
+    uid = _require_valid_uid(uid)
+    if snapshot.lookup.status != "valid" or snapshot.update_time is None or snapshot.lookup.record.state != "deleting":
+        raise ValueError("Only a stored record in 'deleting' can fence a data deletion")
+    if not collections:
+        raise ValueError("No collections to delete from")
+    version = snapshot.lookup.record.version + 1
+    db = _db()
+    batch = db.batch()
+    for collection in collections:
+        batch.delete(db.collection(collection).document(uid))
+    batch.update(_document(db, uid), {"version": version}, option=db.write_option(last_update_time=snapshot.update_time))
+    try:
+        results = batch.commit(retry=None, timeout=WRITE_TIMEOUT_SECONDS)
+    except (google_exceptions.FailedPrecondition, google_exceptions.NotFound, google_exceptions.Aborted) as exc:
+        logger.warning("Account access record changed since it was read; student data not deleted (uid=%s): %s",
+                       uid, type(exc).__name__)
+        raise AccountAccessError(STALE_RECORD) from None
+    except Exception as exc:
+        logger.error("Student data deletion not confirmed (uid=%s): %s", uid, type(exc).__name__)
+        raise AccountAccessError(STORE_UNAVAILABLE) from None
+    logger.info("Student data deleted in one batch (uid=%s, collections=%s, version=%s)",
+                uid, ",".join(collections), version)
+    return RecordChange(version, results[-1].update_time if results else None)
 
 
 def reconcile_access_record(uid: str) -> ReconcileResult:

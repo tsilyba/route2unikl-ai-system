@@ -1,17 +1,24 @@
 // frontend/src/pages/admin/AdminUserDetail.jsx
 //
-// Admin "User Details" (Milestone M3A), with the Disable / Enable account actions (M3B-2).
-// Account data comes from GET /api/admin/users/{uid} (require_admin). Academic records are
+// Admin "User Details" (Milestone M3A), with the Disable / Enable (M3B-2) and Delete (M3B-3) account
+// actions. Account data comes from GET /api/admin/users/{uid} (require_admin). Academic records are
 // shown as metadata only: grades and assessment answers are never requested or shown.
-// The "Account access" panel uses GET /api/admin/users/{uid}/access and POST .../disable and
-// .../enable (require_admin; available only when the backend runs with the local Firebase
-// emulators). The browser never changes Firebase accounts itself.
+// The "Account access" panel uses GET /api/admin/users/{uid}/access and POST .../disable, .../enable and
+// .../delete (require_admin; available only when the backend runs with the local Firebase emulators).
+// The browser never changes Firebase accounts itself. After a completed deletion the page returns to
+// Manage Users, which reports it.
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AdminIcon from '../../components/admin/AdminIcons';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { ADMIN_USERS_PATH } from '../../components/admin/adminNavigation';
-import { disableAccount, enableAccount, fetchAccountAccess, fetchAdminUser } from '../../utils/adminUsersApi';
+import {
+  deleteAccount,
+  disableAccount,
+  enableAccount,
+  fetchAccountAccess,
+  fetchAdminUser,
+} from '../../utils/adminUsersApi';
 import {
   AdminUsersRequestError,
   formatDateTime,
@@ -22,6 +29,8 @@ import {
   isValidUid,
 } from '../../utils/adminUsers';
 import {
+  confirmationMatches,
+  deletionNoticeState,
   describeAccessLoadError,
   describeAccountAccess,
   describeActionError,
@@ -57,9 +66,12 @@ const ACTION_BUTTON_TONES = {
 const secondaryButton =
   'rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer';
 
-// Disable / Enable (M3B-2). The server decides which actions are allowed; this panel shows its answer,
-// asks for confirmation, prevents double submission and reports the outcome truthfully.
-const AccountAccessPanel = ({ uid, name, refreshKey, onChanged }) => {
+const ACTION_REQUESTS = { disable: disableAccount, enable: enableAccount, delete: deleteAccount };
+
+// Disable / Enable (M3B-2) and Delete (M3B-3). The server decides which actions are allowed; this panel
+// shows its answer, asks for confirmation (for a deletion: a warning and the student's email address typed
+// in full), prevents double submission and reports the outcome truthfully.
+const AccountAccessPanel = ({ uid, name, email, refreshKey, onChanged, onDeleted }) => {
   const [reload, setReload] = useState(0);
   const loadKey = `${uid}#${refreshKey}#${reload}`;
   const [loaded, setLoaded] = useState({ key: null, uid: null, data: null, error: null });
@@ -93,7 +105,11 @@ const AccountAccessPanel = ({ uid, name, refreshKey, onChanged }) => {
     setPending(true);
     setFeedback(null);
     try {
-      const result = await (action === 'disable' ? disableAccount : enableAccount)(uid);
+      const result = await ACTION_REQUESTS[action](uid);
+      if (action === 'delete') {
+        onDeleted(result); // the account no longer exists: back to Manage Users, which reports the deletion
+        return;
+      }
       setLoaded({ key: loadKey, uid, data: result.account ?? null, error: null });
       setFeedback(describeActionSuccess(result));
       onChanged(); // refresh the account details shown on the page
@@ -167,7 +183,10 @@ const AccountAccessPanel = ({ uid, name, refreshKey, onChanged }) => {
     );
   }
 
-  const confirmation = confirming ? getConfirmation(confirming.action, { name, resume: confirming.resume }) : null;
+  const confirmation = confirming
+    ? getConfirmation(confirming.action, { name, resume: confirming.resume, email, uid })
+    : null;
+  const typed = confirmation?.typed;
 
   return (
     <section aria-labelledby="account-access-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -186,6 +205,8 @@ const AccountAccessPanel = ({ uid, name, refreshKey, onChanged }) => {
         <ConfirmDialog
           title={confirmation.title}
           message={confirmation.message}
+          warning={confirmation.warning}
+          typedConfirmation={typed ? { label: typed.label, value: typed.value, matches: (text) => confirmationMatches(text, typed) } : null}
           confirmLabel={confirmation.confirmLabel}
           pendingLabel={confirmation.pendingLabel}
           tone={confirmation.tone}
@@ -224,6 +245,7 @@ const Note = ({ children }) => <p className="mt-3 text-xs text-slate-500">{child
 const AdminUserDetail = () => {
   const { uid = '' } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const validUid = isValidUid(uid);
   const [reloadCount, setReloadCount] = useState(0);
   const requestKey = `${uid}#${reloadCount}`;
@@ -253,6 +275,10 @@ const AdminUserDetail = () => {
   // Return to the list with the same search and filters when we came from it.
   const from = location.state?.from;
   const backTo = `${ADMIN_USERS_PATH}${typeof from === 'string' && from.startsWith('?') ? from : ''}`;
+
+  // After a completed deletion: back to the list, replacing this page in the history (going back would
+  // only find the deleted account missing). The list shows the outcome from two flags in the state.
+  const showDeletion = (outcome) => navigate(backTo, { replace: true, state: deletionNoticeState(outcome) });
 
   const backLink = (
     <Link
@@ -326,8 +352,10 @@ const AdminUserDetail = () => {
         key={user.uid}
         uid={user.uid}
         name={profile?.name || user.email}
+        email={user.email}
         refreshKey={reloadCount}
         onChanged={() => setReloadCount((n) => n + 1)}
+        onDeleted={showDeletion}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -423,8 +451,8 @@ const AdminUserDetail = () => {
 
       <p className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         <AdminIcon name="lock" className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-        Account details are read-only. Disabling and enabling are in the Account access panel above. Deleting
-        accounts is planned for a later milestone and is not available.
+        Account details are read-only here. Disabling, enabling and permanently deleting the account are in the
+        Account access panel above.
       </p>
     </div>
   );

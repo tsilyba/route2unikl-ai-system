@@ -2,14 +2,19 @@
 //
 // Calls to the Admin "Manage Users" endpoints, through authFetch, which attaches the
 // Firebase ID token. The backend checks the admin claim on every request (require_admin).
-// M3A endpoints are read-only. The M3B-2 Disable / Enable actions exist only when the
-// backend runs with the local Firebase emulators; the browser never changes Firebase
+// M3A endpoints are read-only. The M3B-2 Disable / Enable and M3B-3 Delete actions exist only
+// when the backend runs with the local Firebase emulators; the browser never changes Firebase
 // accounts itself, it only asks the protected FastAPI endpoints to.
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { authFetch } from './apiClient';
 import { AdminUsersRequestError, USERS_API_PATH, signOutThenRedirect } from './adminUsers';
-import { accountAccessPath, accountActionPath, pickErrorDetail } from './adminAccountActions';
+import {
+  INCOMPLETE_DELETIONS_PATH,
+  accountAccessPath,
+  accountActionPath,
+  pickErrorDetail,
+} from './adminAccountActions';
 
 const readJson = async (response) => {
   try {
@@ -46,6 +51,16 @@ export const fetchAccountAccess = (uid) => getJson(accountAccessPath(uid));
 // path and the acting administrator from the verified token.
 export const disableAccount = (uid) => requestJson(accountActionPath(uid, 'disable'), { method: 'POST' });
 export const enableAccount = (uid) => requestJson(accountActionPath(uid, 'enable'), { method: 'POST' });
+
+// POST /api/admin/users/{uid}/delete (M3B-3): permanent deletion, or resuming an unfinished one. The body
+// names the same account as the path; the server refuses the request (422) if they differ. The typed email
+// in the confirmation dialog is checked in the browser only, as a usability safeguard.
+export const deleteAccount = (uid) =>
+  requestJson(accountActionPath(uid, 'delete'), { method: 'POST', body: JSON.stringify({ confirm_uid: uid }) });
+
+// GET /api/admin/account-operations/incomplete-deletions (M3B-3): unfinished deletions, including accounts
+// whose sign-in account is already gone and which therefore no longer appear in the Manage Users list.
+export const fetchIncompleteDeletions = () => getJson(INCOMPLETE_DELETIONS_PATH);
 
 // Ends the Firebase session, then goes to the login page (expired sessions and the
 // "Sign out" action when the server did not confirm admin access). If sign-out

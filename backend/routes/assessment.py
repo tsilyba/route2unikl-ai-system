@@ -6,7 +6,9 @@ from typing import List, Optional, Dict, Any
 from services.rag_orchestrator import generate_rag_assessment
 from services.recommendation_service import calculate_program_recommendations
 from core.firebase import initialize_firebase
-from core.auth import AuthenticatedUser, ensure_same_user, get_current_user
+from core.auth import AuthenticatedUser, ensure_same_user
+# M3B-3: get_current_user plus, in emulator mode, refusal of accounts being deleted or deleted (JL1).
+from core.student_access import require_student_data_access
 
 logger = logging.getLogger("assessment_route")
 router = APIRouter()
@@ -43,7 +45,7 @@ class RecommendationRequest(BaseModel):
 @router.post("/generate-questions")
 async def generate_questions_endpoint(
     payload: AssessmentRequest,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_student_data_access),
 ):
     """
     RAG Orchestration Endpoint (requires a valid Firebase ID token):
@@ -67,7 +69,7 @@ async def generate_questions_endpoint(
 @router.post("/recommend")
 async def recommend_endpoint(
     payload: RecommendationRequest,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_student_data_access),
 ):
     """
     Recommendation & Preparation Plan Endpoint (requires a valid Firebase ID token):

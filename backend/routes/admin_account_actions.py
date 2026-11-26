@@ -1,14 +1,19 @@
 # backend/routes/admin_account_actions.py
 """
-Admin account actions (M3B-2): LOCAL EMULATOR TESTING ONLY.
+Admin account actions (M3B-2, M3B-3): LOCAL EMULATOR TESTING ONLY.
 
   GET  /api/admin/users/{uid}/access    access state, any unfinished operation, and the allowed actions
   POST /api/admin/users/{uid}/disable   disable a student account
   POST /api/admin/users/{uid}/enable    enable a disabled student account
+  POST /api/admin/users/{uid}/delete    permanently delete a student account, or resume an unfinished
+                                        deletion; body {"confirm_uid": "<the same uid>"} (M3B-3)
+  GET  /api/admin/account-operations/incomplete-deletions
+                                        unfinished deletions, including accounts whose Firebase
+                                        Authentication account is already gone (M3B-3)
 
-main.py mounts this router only when the backend starts in Firebase emulator mode. Even when mounted, the
-router's first dependency answers 404 unless the backend is still in emulator mode, before any token is
-verified or Firebase is touched; its second answers 503 unless Firebase was initialised in emulator mode
+main.py mounts these routers only when the backend starts in Firebase emulator mode. Even when mounted,
+each router's first dependency answers 404 unless the backend is still in emulator mode, before any token
+is verified or Firebase is touched; its second answers 503 unless Firebase was initialised in emulator mode
 (the same checks as routes/registration.py). Then require_admin runs, before the service.
 
 Workflow, locking, audit and recovery: services/account_action_service.py. Responses are allow-listed
@@ -19,18 +24,20 @@ reason code; Firebase error messages are never returned.
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from core import firebase as core_firebase
 from core.auth import AuthenticatedUser, require_admin
 from services import account_action_service as actions
 from services.user_admin_service import UID_PATTERN
 
-AccountState = Literal["active", "disabled", "inconsistent", "incomplete", "in_progress", "protected", "unsupported"]
-Action = Literal["disable", "enable"]
+AccountState = Literal["active", "disabled", "inconsistent", "incomplete", "in_progress", "protected", "unsupported",
+                       "deletion_incomplete", "deleted"]
+Action = Literal["disable", "enable", "delete"]
 
 STATUS_BY_CODE = {
     actions.INVALID_UID: 422,
+    actions.DELETE_CONFIRMATION_MISMATCH: 422,
     actions.SELF_ACTION_FORBIDDEN: status.HTTP_403_FORBIDDEN,
     actions.ADMIN_TARGET_FORBIDDEN: status.HTTP_403_FORBIDDEN,
     actions.USER_NOT_FOUND: status.HTTP_404_NOT_FOUND,
@@ -39,27 +46,35 @@ STATUS_BY_CODE = {
     actions.ALREADY_ACTIVE: status.HTTP_409_CONFLICT,
     actions.OPERATION_IN_PROGRESS: status.HTTP_409_CONFLICT,
     actions.INCOMPLETE_OPERATION_PENDING: status.HTTP_409_CONFLICT,
+    actions.ACCOUNT_DELETION_IN_PROGRESS: status.HTTP_409_CONFLICT,
+    actions.ACCOUNT_DELETED: status.HTTP_409_CONFLICT,
+    actions.DELETE_NOT_ALLOWED: status.HTTP_409_CONFLICT,
     actions.ACCOUNT_ACTION_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
     actions.OPERATION_INCOMPLETE: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 MESSAGES = {
     actions.INVALID_UID: "This account ID is not valid.",
-    actions.SELF_ACTION_FORBIDDEN: "You cannot disable or enable your own account.",
-    actions.ADMIN_TARGET_FORBIDDEN: "Administrator accounts cannot be disabled or enabled here.",
+    actions.DELETE_CONFIRMATION_MISMATCH: "The deletion was not confirmed for this account. Nothing was changed.",
+    actions.SELF_ACTION_FORBIDDEN: "You cannot disable, enable or delete your own account.",
+    actions.ADMIN_TARGET_FORBIDDEN: "Administrator accounts cannot be disabled, enabled or deleted here.",
     actions.USER_NOT_FOUND: "No account exists with this ID.",
     actions.ACCESS_RECORD_UNSUPPORTED: "This account has no usable access record, so it cannot be changed here.",
     actions.ALREADY_DISABLED: "This account is already disabled.",
     actions.ALREADY_ACTIVE: "This account is already active.",
     actions.OPERATION_IN_PROGRESS: "Another change to this account is in progress. Try again in a moment.",
     actions.INCOMPLETE_OPERATION_PENDING: "An earlier change to this account did not finish. Resume it first.",
+    actions.ACCOUNT_DELETION_IN_PROGRESS: "This account is being deleted. Only the deletion can be resumed.",
+    actions.ACCOUNT_DELETED: "This account has already been deleted.",
+    actions.DELETE_NOT_ALLOWED: "Only an active or disabled account can be deleted. Resolve its state first.",
     actions.ACCOUNT_ACTION_UNAVAILABLE: "Account actions are temporarily unavailable. Nothing was changed.",
     actions.OPERATION_INCOMPLETE: "The change did not finish. It has been recorded and can be resumed.",
 }
 
+
 def account_actions_enabled() -> bool:
     """Only in Firebase emulator mode; decided from the environment without touching Firebase.
-    Also used by main.py to decide whether to mount this router at all."""
+    Also used by main.py to decide whether to mount these routers at all."""
     try:
         return core_firebase.firebase_mode() == core_firebase.EMULATOR_MODE
     except core_firebase.FirebaseConfigError:
@@ -87,6 +102,7 @@ def require_local_emulator() -> None:
 
 # Router-level dependencies are solved before each route's own (require_admin).
 router = APIRouter(dependencies=[Depends(require_local_emulator)])
+operations_router = APIRouter(dependencies=[Depends(require_local_emulator)])
 
 
 class RecordState(BaseModel):
@@ -109,7 +125,7 @@ class OperationState(BaseModel):
 
 class AccessState(BaseModel):
     uid: str
-    auth_status: Literal["enabled", "disabled"]
+    auth_status: Literal["enabled", "disabled", "missing"]
     is_admin: bool
     is_self: bool
     record: RecordState
@@ -127,6 +143,17 @@ class AccountActionResponse(BaseModel):
     audit_recorded: bool
     lock_released: bool
     account: AccessState
+
+
+class IncompleteDeletions(BaseModel):
+    items: List[AccessState]
+
+
+class DeleteRequest(BaseModel):
+    """The server-side confirmation: the request must name the same account as the path."""
+    model_config = ConfigDict(extra="forbid")
+
+    confirm_uid: str = Field(..., min_length=1, max_length=128)
 
 
 def _error(exc: "actions.AccountActionError") -> HTTPException:
@@ -175,3 +202,23 @@ def disable_account(uid: str = UidPath, admin: AuthenticatedUser = Depends(requi
 def enable_account(uid: str = UidPath, admin: AuthenticatedUser = Depends(require_admin)):
     """Enable a disabled student account: earlier sessions stay blocked; the record becomes active last."""
     return _perform(actions.enable_account, uid, admin)
+
+
+@router.post("/{uid}/delete", response_model=AccountActionResponse)
+def delete_account(body: DeleteRequest, uid: str = UidPath, admin: AuthenticatedUser = Depends(require_admin)):
+    """Permanently delete a student account (M3B-3), or resume an unfinished deletion.
+
+    Reported as completed only after the student's documents and Firebase Authentication account are
+    confirmed gone and the record is 'deleted'; any partial failure is OPERATION_INCOMPLETE (resumable).
+    """
+    return _perform(lambda target, actor: actions.delete_account(target, actor, body.confirm_uid), uid, admin)
+
+
+@operations_router.get("/incomplete-deletions", response_model=IncompleteDeletions)
+def list_incomplete_deletions(admin: AuthenticatedUser = Depends(require_admin)):
+    """Unfinished deletions, including accounts no longer in Firebase Authentication. Read-only."""
+    try:
+        views = actions.list_incomplete_deletions(admin.uid)
+    except actions.AccountActionError as exc:
+        raise _error(exc) from None
+    return {"items": [actions.describe_view(view, admin.uid) for view in views]}

@@ -3,11 +3,24 @@
 // Admin "Manage Users" list (Milestone M3A) — read only.
 // Data comes from GET /api/admin/users (require_admin; Firebase Admin SDK on the
 // server). Search and filters live in the page URL so they survive opening a
-// user's details and coming back. Disable / Enable (M3B-2) are on the User Details page.
-import { useEffect, useState } from 'react';
+// user's details and coming back. Disable / Enable (M3B-2) and Delete (M3B-3) are on
+// the User Details page. This page also reports a completed deletion and lists
+// "Incomplete deletions" (M3B-3, local emulator mode only), including accounts whose
+// sign-in account is already gone and which therefore no longer appear in the list.
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminIcon from '../../components/admin/AdminIcons';
-import { fetchAdminUsers, signOutToLogin } from '../../utils/adminUsersApi';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import { deleteAccount, fetchAdminUsers, fetchIncompleteDeletions, signOutToLogin } from '../../utils/adminUsersApi';
+import {
+  confirmationMatches,
+  describeAccountAccess,
+  describeActionError,
+  describeActionSuccess,
+  describeIncompleteDeletionsError,
+  getConfirmation,
+  getDeletionNotice,
+} from '../../utils/adminAccountActions';
 import {
   AdminUsersRequestError,
   DEFAULT_PAGE_SIZE,
@@ -169,10 +182,155 @@ const Pagination = ({ page, totalPages, onPage }) => (
 const detailsLinkClasses =
   'inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600';
 
+const FEEDBACK_TONES = {
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+  warning: 'border-amber-200 bg-amber-50 text-amber-900',
+  info: 'border-blue-200 bg-blue-50 text-blue-900',
+  error: 'border-red-200 bg-red-50 text-red-900',
+};
+
+const smallButtonClasses =
+  'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-blue-600 cursor-pointer';
+
+// Unfinished deletions (M3B-3). Hidden when there are none, and on a server without account actions.
+// An account whose sign-in account still exists is resumed from its User Details page (typed email
+// confirmation); one whose sign-in account is already gone is finished here (typed account ID).
+const IncompleteDeletionsPanel = () => {
+  const [reload, setReload] = useState(0);
+  const [loaded, setLoaded] = useState({ key: null, items: [], error: null });
+  const [confirming, setConfirming] = useState(null); // the item whose deletion awaits confirmation
+  const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const submittingRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchIncompleteDeletions()
+      .then((data) => {
+        if (active) setLoaded({ key: reload, items: Array.isArray(data?.items) ? data.items : [], error: null });
+      })
+      .catch((error) => {
+        if (active) setLoaded({ key: reload, items: [], error });
+      });
+    return () => {
+      active = false;
+    };
+  }, [reload]);
+
+  const finishDeletion = async () => {
+    if (!confirming || submittingRef.current) return;
+    submittingRef.current = true;
+    setPending(true);
+    setFeedback(null);
+    try {
+      setFeedback(describeActionSuccess(await deleteAccount(confirming.uid)));
+    } catch (error) {
+      setFeedback(describeActionError(error));
+    } finally {
+      submittingRef.current = false;
+      setPending(false);
+      setConfirming(null);
+      setReload((n) => n + 1); // show what is still unfinished
+    }
+  };
+
+  const loading = loaded.key !== reload;
+  const errorText = loaded.error ? describeIncompleteDeletionsError(loaded.error) : null;
+  const items = loaded.items;
+  if (!feedback && !errorText && items.length === 0) return null;
+
+  const confirmation = confirming ? getConfirmation('delete', { resume: true, uid: confirming.uid }) : null;
+  const typed = confirmation?.typed;
+
+  return (
+    <section aria-labelledby="incomplete-deletions-title" className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="incomplete-deletions-title" className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <AdminIcon name="alert" className="h-5 w-5 text-amber-600" />
+          Incomplete deletions
+        </h2>
+        <button type="button" onClick={() => setReload((n) => n + 1)} disabled={pending || loading} className={smallButtonClasses}>
+          {loading ? 'Checking…' : 'Refresh'}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-slate-600">
+        Deletions that started but did not finish. They cannot be undone; resume them to finish.
+      </p>
+      {feedback && (
+        <div role={feedback.tone === 'error' ? 'alert' : 'status'} className={`mt-3 rounded-xl border p-3 text-sm ${FEEDBACK_TONES[feedback.tone] ?? FEEDBACK_TONES.info}`}>
+          <p className="font-semibold">{feedback.title}</p>
+          <p className="mt-1">{feedback.message}</p>
+        </div>
+      )}
+      {errorText && <p role="alert" className="mt-3 text-sm text-red-700">{errorText}</p>}
+      {items.length > 0 && (
+        <ul className="mt-3 divide-y divide-slate-100">
+          {items.map((item) => {
+            const view = describeAccountAccess(item);
+            const canFinishHere = item.state === 'deletion_incomplete' && item.auth_status === 'missing'
+              && Array.isArray(item.allowed_actions) && item.allowed_actions.includes('delete');
+            const openAccount = item.state === 'deletion_incomplete' && item.auth_status !== 'missing';
+            return (
+              <li key={item.uid} className="space-y-2 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
+                    {view.label}
+                  </span>
+                  <span className="break-all font-mono text-xs text-slate-500">Account ID: {item.uid}</span>
+                </div>
+                <p className="text-sm text-slate-700">{view.description}</p>
+                {view.details.length > 0 && (
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+                    {view.details.map((detail) => <li key={detail}>{detail}</li>)}
+                  </ul>
+                )}
+                {canFinishHere && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(item)}
+                    disabled={pending || loading}
+                    className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-red-600 cursor-pointer"
+                  >
+                    Finish deletion
+                  </button>
+                )}
+                {openAccount && (
+                  <Link to={`/admin/users/${encodeURIComponent(item.uid)}`} className={`${detailsLinkClasses} -ml-3`}>
+                    Open the account to resume the deletion
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {confirmation && (
+        <ConfirmDialog
+          title={confirmation.title}
+          message={confirmation.message}
+          warning={confirmation.warning}
+          typedConfirmation={{ label: typed.label, value: typed.value, matches: (text) => confirmationMatches(text, typed) }}
+          confirmLabel={confirmation.confirmLabel}
+          pendingLabel={confirmation.pendingLabel}
+          tone={confirmation.tone}
+          pending={pending}
+          onConfirm={finishDeletion}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+    </section>
+  );
+};
+
 const AdminUsers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const filters = readListFilters(searchParams);
+  // Set by User Details after a completed deletion; cleared when dismissed or when the filters change.
+  const deletionNotice = getDeletionNotice(location.state);
+  const dismissNotice = () =>
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
   const requestQuery = buildUserListQuery({ ...filters, pageSize: DEFAULT_PAGE_SIZE });
   const [reloadCount, setReloadCount] = useState(0);
   const requestKey = `${requestQuery}#${reloadCount}`;
@@ -327,10 +485,24 @@ const AdminUsers = () => {
       <section aria-labelledby="admin-users-title">
         <h2 id="admin-users-title" className="text-lg font-bold text-slate-900">Accounts</h2>
         <p className="text-sm text-slate-600">
-          Student and administrator accounts, newest registration first. Open an account to disable or enable it
-          (available when the server runs with the local Firebase emulators).
+          Student and administrator accounts, newest registration first. Open an account to disable, enable or
+          delete it (available when the server runs with the local Firebase emulators).
         </p>
       </section>
+
+      {deletionNotice && (
+        <div role="status" className={`flex flex-col gap-3 rounded-2xl border p-4 text-sm sm:flex-row sm:items-start sm:justify-between ${FEEDBACK_TONES[deletionNotice.tone] ?? FEEDBACK_TONES.info}`}>
+          <div>
+            <p className="font-semibold">{deletionNotice.title}</p>
+            <p className="mt-1">{deletionNotice.message}</p>
+          </div>
+          <button type="button" onClick={dismissNotice} className={`${smallButtonClasses} self-start`}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <IncompleteDeletionsPanel />
 
       <form role="search" onSubmit={handleSearch} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">

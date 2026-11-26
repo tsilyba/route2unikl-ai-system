@@ -90,6 +90,14 @@ class FakeAuth:
             raise firebase_auth.UserNotFoundError("No user record found for the provided user ID")
         self.events.append(("auth", "revoked"))
 
+    def delete_user(self, uid, app=None):
+        self._maybe_fail("delete_user", uid=uid)
+        with self.lock:
+            if uid not in self.users:
+                raise firebase_auth.UserNotFoundError("No user record found for the provided user ID")
+            del self.users[uid]
+            self.events.append(("auth", "deleted"))
+
 
 class FakeOption:
     def __init__(self, last_update_time):
@@ -139,6 +147,10 @@ class FakeDocument:
                 raise google_exceptions.FailedPrecondition("update_time mismatch")
             return self.store.write(self.key, {**entry["data"], **self._resolve(data)}, "update")
 
+    def collections(self):
+        self.store.maybe_fail("collections", self.key)
+        return list(self.store.subcollections.get(self.key, []))
+
     def delete(self, option=None, retry=None, timeout=None):
         self.store.maybe_fail("delete", self.key)
         with self.store.lock:
@@ -157,6 +169,7 @@ class FakeFirestore:
         self.clock = 0
         self.fail = {}            # (operation, collection) -> exception or callable(data) -> exception | None
         self.before_write = None  # hook(key, operation) called before a write is applied
+        self.subcollections = {}  # (collection, id) -> list of subcollection names
 
     def server_time(self):
         return datetime(2026, 11, 26, 12, 0, tzinfo=timezone.utc) + timedelta(microseconds=self.clock)
@@ -178,7 +191,10 @@ class FakeFirestore:
         return SimpleNamespace(update_time=self.clock)
 
     def collection(self, name):
-        return SimpleNamespace(document=lambda doc_id: FakeDocument(self, name, doc_id))
+        return FakeCollection(self, name)
+
+    def batch(self):
+        return FakeBatch(self)
 
     def write_option(self, last_update_time=None):
         return FakeOption(last_update_time)
@@ -195,6 +211,61 @@ class FakeFirestore:
 
     def all(self, collection):
         return {key[1]: dict(entry["data"]) for key, entry in self.docs.items() if key[0] == collection}
+
+
+class FakeCollection:
+    def __init__(self, store, name, field_filter=None):
+        self.store, self.name, self.field_filter = store, name, field_filter
+
+    def document(self, doc_id):
+        return FakeDocument(self.store, self.name, doc_id)
+
+    def where(self, filter=None):
+        return FakeCollection(self.store, self.name, filter)
+
+    def stream(self):
+        self.store.maybe_fail("stream", (self.name,))
+        with self.store.lock:
+            entries = [(key[1], entry) for key, entry in self.store.docs.items() if key[0] == self.name]
+        for doc_id, entry in entries:
+            if self.field_filter is not None:
+                assert self.field_filter.op_string == "=="
+                if entry["data"].get(self.field_filter.field_path) != self.field_filter.value:
+                    continue
+            yield FakeSnapshot(doc_id, entry)
+
+
+class FakeBatch:
+    """An atomic batch: every precondition is checked before any write is applied."""
+
+    def __init__(self, store):
+        self.store, self.ops = store, []
+
+    def delete(self, reference, option=None):
+        self.ops.append(("delete", reference, None, option))
+
+    def update(self, reference, data, option=None):
+        self.ops.append(("update", reference, data, option))
+
+    def commit(self, retry=None, timeout=None):
+        self.store.maybe_fail("commit", ("batch",))
+        with self.store.lock:
+            for kind, reference, _, option in self.ops:
+                entry = self.store.docs.get(reference.key)
+                if kind == "update" and entry is None:
+                    raise google_exceptions.NotFound("No document to update")
+                if option is not None and entry is not None and option.last_update_time != entry["time"]:
+                    raise google_exceptions.FailedPrecondition("update_time mismatch")
+            results = []
+            for kind, reference, data, _ in self.ops:
+                if kind == "delete":
+                    if self.store.docs.pop(reference.key, None) is not None:
+                        self.store.events.append((reference.key[0], "delete"))
+                    results.append(SimpleNamespace(update_time=None))
+                else:
+                    entry = self.store.docs[reference.key]
+                    results.append(self.store.write(reference.key, {**entry["data"], **reference._resolve(data)}, "update"))
+            return results
 
 
 class CapturedLogs(logging.Handler):
@@ -214,7 +285,7 @@ class ActionTestBase(unittest.TestCase):
         self.store = FakeFirestore(self.events)
         self.init_actions = self.patch("services.account_action_service.initialize_firebase", return_value=self.store)
         self.patch("services.account_access_service.initialize_firebase", return_value=self.store)
-        for name in ("get_user", "update_user", "revoke_refresh_tokens"):
+        for name in ("get_user", "update_user", "revoke_refresh_tokens", "delete_user"):
             self.patch(f"services.account_action_service.firebase_auth.{name}", side_effect=getattr(self.auth, name))
         self.sleeps = []
         self.patch("services.account_action_service._sleep", side_effect=lambda seconds: self.sleeps.append(seconds))
@@ -283,15 +354,16 @@ class ViewTests(ActionTestBase):
     def test_states_and_allowed_actions(self):
         threshold = {"sessionsValidAfter": datetime(2026, 1, 1, tzinfo=timezone.utc)}
         cases = [
-            (False, ACTIVE, None, "active", ["disable"]),
-            (True, DISABLED, None, "disabled", ["enable"]),
+            (False, ACTIVE, None, "active", ["disable", "delete"]),
+            (True, DISABLED, None, "disabled", ["enable", "delete"]),
             (True, ACTIVE, None, "inconsistent", ["disable", "enable"]),
             (False, DISABLED, None, "inconsistent", ["disable", "enable"]),
-            (False, {**ACTIVE, **threshold}, None, "active", ["disable"]),
+            (False, {**ACTIVE, **threshold}, None, "active", ["disable", "delete"]),
             (False, None, None, "unsupported", []),
             (False, {"state": "active", "version": 1, "extra": True}, None, "unsupported", []),
-            (True, {"state": "deleting", "version": 3}, None, "unsupported", []),
-            (True, {"state": "deleted", "version": 4}, None, "unsupported", []),
+            # M3B-3: a started deletion can only be continued by Delete (never undone).
+            (True, {"state": "deleting", "version": 3}, None, "deletion_incomplete", ["delete"]),
+            (True, {"state": "deleted", "version": 4}, None, "deletion_incomplete", ["delete"]),
             (False, ACTIVE, ("disable", "running", 60), "in_progress", []),
             (False, ACTIVE, ("disable", "running", -1), "incomplete", ["disable"]),
             (False, DISABLED, ("disable", "incomplete", None), "incomplete", ["disable"]),
@@ -381,14 +453,19 @@ class DisableTests(ActionTestBase):
         self.assertEqual(self.audits(), [])
 
     def test_unsupported_records_and_missing_accounts_are_refused(self):
-        for record, disabled in ((None, False), ({"state": "active", "version": 1, "updatedAt": 1}, False),
-                                 ({"state": "active", "version": "1"}, False), ({"state": "deleting", "version": 3}, True),
-                                 ({"state": "deleted", "version": 4}, True)):
+        # Missing and malformed records are unsupported; deletion states (M3B-3) refuse Disable and Enable:
+        # a deletion is never undone. Neither kind of record is ever created, repaired or reactivated.
+        for record, disabled, code in (
+                (None, False, actions.ACCESS_RECORD_UNSUPPORTED),
+                ({"state": "active", "version": 1, "updatedAt": 1}, False, actions.ACCESS_RECORD_UNSUPPORTED),
+                ({"state": "active", "version": "1"}, False, actions.ACCESS_RECORD_UNSUPPORTED),
+                ({"state": "deleting", "version": 3}, True, actions.ACCOUNT_DELETION_IN_PROGRESS),
+                ({"state": "deleted", "version": 4}, True, actions.ACCOUNT_DELETION_IN_PROGRESS)):
             with self.subTest(record=record):
                 self.store.docs.clear()
                 self.student(record=record, disabled=disabled)
                 for action in (actions.disable_account, actions.enable_account):
-                    self.assert_error(actions.ACCESS_RECORD_UNSUPPORTED, action, TARGET, ADMIN_UID)
+                    self.assert_error(code, action, TARGET, ADMIN_UID)
                 self.assertEqual(self.record(), record, "never created, repaired or reactivated")
         self.assert_error(actions.USER_NOT_FOUND, actions.disable_account, "no-such-uid", ADMIN_UID)
         self.assertEqual(self.changes(), [])
@@ -759,7 +836,8 @@ class RecordPrimitiveTests(ActionTestBase):
     def test_change_record_state_rejects_other_states_and_unreadable_records(self):
         self.student(record=ACTIVE)
         snapshot = access.read_record_snapshot(TARGET)
-        for state in ("deleting", "deleted", "unknown"):
+        # M3B-3: 'active' may become 'disabled' or 'deleting'; never 'deleted' directly, 'active' again, or unknown.
+        for state in ("deleted", "active", "unknown"):
             with self.assertRaises(ValueError):
                 access.change_record_state(TARGET, snapshot, state=state)
         with self.assertRaises(ValueError):
@@ -823,7 +901,7 @@ class RouteTests(ActionTestBase):
         self.student(record=ACTIVE)
         state = self.call("get", f"{TARGET}/access")
         self.assertEqual(state.status_code, 200)
-        self.assertEqual((state.json()["state"], state.json()["allowed_actions"]), ("active", ["disable"]))
+        self.assertEqual((state.json()["state"], state.json()["allowed_actions"]), ("active", ["disable", "delete"]))
 
         disabled = self.call("post", f"{TARGET}/disable")
         self.assertEqual(disabled.status_code, 200)

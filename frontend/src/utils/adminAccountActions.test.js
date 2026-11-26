@@ -7,14 +7,20 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACCOUNT_ACTIONS,
+  INCOMPLETE_DELETIONS_PATH,
   accountAccessPath,
   accountActionPath,
+  confirmationMatches,
+  deletionNoticeState,
   describeAccessLoadError,
   describeAccountAccess,
   describeActionError,
   describeActionSuccess,
+  describeIncompleteDeletionsError,
   getActionButtons,
   getConfirmation,
+  getDeleteConfirmationTarget,
+  getDeletionNotice,
   getReasonLabel,
   getStepLabel,
   pickErrorDetail,
@@ -45,15 +51,17 @@ const apiAuthError = (status, code = null) => Object.assign(new Error('auth'), {
 
 describe('API paths', () => {
   test('access and action paths under the Manage Users API, with the uid encoded', () => {
-    assert.deepEqual(ACCOUNT_ACTIONS, ['disable', 'enable']);
+    assert.deepEqual(ACCOUNT_ACTIONS, ['disable', 'enable', 'delete']);
     assert.equal(accountAccessPath('abc_123'), '/api/admin/users/abc_123/access');
     assert.equal(accountActionPath('abc_123', 'disable'), '/api/admin/users/abc_123/disable');
     assert.equal(accountActionPath('abc_123', 'enable'), '/api/admin/users/abc_123/enable');
+    assert.equal(accountActionPath('abc_123', 'delete'), '/api/admin/users/abc_123/delete');
     assert.equal(accountAccessPath('a/b?c'), '/api/admin/users/a%2Fb%3Fc/access');
+    assert.equal(INCOMPLETE_DELETIONS_PATH, '/api/admin/account-operations/incomplete-deletions');
   });
 
-  test('only the two actions exist', () => {
-    for (const action of ['delete', 'DISABLE', '', undefined, '../disable']) {
+  test('only the three actions exist', () => {
+    for (const action of ['purge', 'DELETE', 'DISABLE', '', undefined, '../disable', 'delete/']) {
       assert.throws(() => accountActionPath('abc', action), /Unknown account action/);
     }
   });
@@ -133,7 +141,7 @@ describe('getActionButtons', () => {
     assert.deepEqual(getActionButtons(access({ is_self: true })), []);
     assert.deepEqual(getActionButtons(access({ allowed_actions: [] })), []);
     assert.deepEqual(getActionButtons(access({ allowed_actions: undefined })), []);
-    assert.deepEqual(getActionButtons(access({ allowed_actions: ['delete', 'disable'] })).map((b) => b.action), ['disable']);
+    assert.deepEqual(getActionButtons(access({ allowed_actions: ['purge', 'disable'] })).map((b) => b.action), ['disable']);
     assert.deepEqual(getActionButtons(null), []);
   });
 });
@@ -253,5 +261,200 @@ describe('pickErrorDetail', () => {
   test('AdminUsersRequestError carries the detail, null by default', () => {
     assert.equal(new AdminUsersRequestError(404, 'USER_NOT_FOUND').detail, null);
     assert.deepEqual(new AdminUsersRequestError(503, 'OPERATION_INCOMPLETE', { reason: 'X' }).detail, { reason: 'X' });
+  });
+});
+
+// ------------------------------------------------------------------- M3B-3: Delete Student Account
+const deletion = (overrides = {}) => access({
+  state: 'deletion_incomplete',
+  auth_status: 'disabled',
+  record: { status: 'valid', state: 'deleting', version: 3, sessions_valid_after: null },
+  allowed_actions: ['delete'],
+  operation: { operation_id: 'op-d', operation: 'delete', status: 'incomplete', failed_step: 'delete_auth',
+    reason: 'AUTH_UNAVAILABLE', started_at: null, updated_at: null, started_by_you: true },
+  ...overrides,
+});
+
+describe('M3B-3 deletion states', () => {
+  test('active and disabled accounts offer Delete as a danger action', () => {
+    const buttons = (value) => getActionButtons(value).map(({ action, label, tone, resume }) => [action, label, tone, resume]);
+    assert.deepEqual(buttons(access({ allowed_actions: ['disable', 'delete'] })),
+      [['disable', 'Disable account', 'danger', false], ['delete', 'Delete account', 'danger', false]]);
+    assert.deepEqual(buttons(access({ state: 'disabled', allowed_actions: ['enable', 'delete'] })),
+      [['enable', 'Enable account', 'primary', false], ['delete', 'Delete account', 'danger', false]]);
+    assert.deepEqual(buttons(deletion()), [['delete', 'Resume deletion', 'danger', true]]);
+    assert.deepEqual(getActionButtons(access({ state: 'protected', is_admin: true, allowed_actions: ['delete'] })), []);
+    assert.deepEqual(getActionButtons(access({ state: 'protected', is_self: true, allowed_actions: ['delete'] })), []);
+  });
+
+  test('an unfinished deletion explains where it stopped, that it cannot be undone, and whether Auth is gone', () => {
+    const view = describeAccountAccess(deletion());
+    assert.equal(view.label, 'Deletion incomplete');
+    assert.match(view.description, /earlier deletion of this account did not finish/);
+    assert.match(view.description, /deleting the sign-in account: Firebase Authentication could not be reached/);
+    assert.match(view.details.join(' '), /can no longer use their data/);
+    assert.match(view.details.join(' '), /cannot be undone or cancelled/);
+    assert.doesNotMatch(view.details.join(' '), /already been deleted/);
+
+    const gone = describeAccountAccess(deletion({ auth_status: 'missing',
+      operation: { ...deletion().operation, failed_step: 'finalize_record', reason: 'STORE_UNAVAILABLE' } }));
+    assert.equal(gone.details[0], 'The sign-in account has already been deleted.');
+    assert.match(gone.description, /recording the deletion as complete: Firestore could not be reached/);
+
+    // Stopped before the record was marked: access may not be closed yet, and the text does not claim it is.
+    const early = describeAccountAccess(deletion({ record: { status: 'valid', state: 'active', version: 1 },
+      operation: { ...deletion().operation, failed_step: 'mark_deleting', reason: 'STORE_UNAVAILABLE' } }));
+    assert.match(early.details.join(' '), /may still be able to use their account/);
+    assert.doesNotMatch(early.details.join(' '), /can no longer use/);
+
+    assert.match(describeAccountAccess(deletion({ operation: null })).description, /started but did not finish/);
+    assert.match(describeAccountAccess(deletion({ operation: { ...deletion().operation, reason: 'NESTED_DATA' } })).details.join(' '),
+      /nested data that this tool does not delete/);
+  });
+
+  test('deleted, running and protected deletions', () => {
+    const deleted = describeAccountAccess(access({ state: 'deleted', auth_status: 'missing', allowed_actions: [],
+      record: { status: 'valid', state: 'deleted', version: 4 } }));
+    assert.equal(deleted.label, 'Deleted');
+    assert.match(deleted.description, /permanently deleted\. Only a minimal deletion record is kept/);
+    const running = describeAccountAccess(access({ state: 'in_progress', allowed_actions: [],
+      operation: { operation: 'delete', started_by_you: false } }));
+    assert.equal(running.label, 'Deletion in progress');
+    assert.match(running.description, /Another administrator started a deletion/);
+    assert.equal(describeAccountAccess(access({ state: 'in_progress', operation: { operation: 'disable' } })).label,
+      'Change in progress');
+    const promoted = describeAccountAccess(access({ state: 'protected', is_admin: true, allowed_actions: [],
+      record: { status: 'valid', state: 'deleting', version: 2 } }));
+    assert.match(promoted.description, /cannot be disabled, enabled or deleted/);
+    assert.match(promoted.details[0], /stopped because it became an administrator account/);
+    assert.deepEqual(describeAccountAccess(access({ state: 'protected', is_admin: true })).details, []);
+    assert.match(describeAccountAccess(access({ state: 'protected', is_self: true })).description, /disable, enable or delete it/);
+  });
+
+  test('deletion step and reason labels', () => {
+    for (const step of ['mark_deleting', 'check_admin_before_data_deletion', 'check_no_nested_data', 'delete_student_data',
+      'confirm_data_removed', 'check_admin_before_auth_deletion', 'delete_auth', 'finalize_record']) {
+      assert.notEqual(getStepLabel(step), 'an unrecorded step', step);
+    }
+    for (const reason of ['ADMIN_TARGET', 'LOCK_LOST', 'NESTED_DATA', 'DATA_REMAINS']) {
+      assert.notEqual(getReasonLabel(reason), 'the reason was not recorded', reason);
+    }
+  });
+});
+
+describe('M3B-3 deletion confirmation', () => {
+  test('the dialog warns that deletion is permanent and requires the email address typed in full', () => {
+    const confirmation = getConfirmation('delete', { name: 'Aisyah', email: 'Aisyah@Example.test', uid: 'uid-1' });
+    assert.equal(confirmation.title, 'Permanently delete this account?');
+    assert.match(confirmation.message, /^Aisyah's sign-in account and all their data \(profile, SPM results and AI assessment\)/);
+    assert.match(confirmation.warning, /cannot be undone/);
+    assert.equal(confirmation.tone, 'danger');
+    assert.equal(confirmation.confirmLabel, 'Delete permanently');
+    assert.equal(confirmation.pendingLabel, 'Deleting…');
+    assert.deepEqual(confirmation.typed,
+      { kind: 'email', value: 'Aisyah@Example.test', label: "Type the student's email address to confirm" });
+    const resume = getConfirmation('delete', { resume: true, uid: 'uid-1' });
+    assert.equal(resume.title, 'Finish deleting this account?');
+    assert.equal(resume.confirmLabel, 'Resume deletion');
+    assert.deepEqual(resume.typed, { kind: 'uid', value: 'uid-1', label: 'Type the account ID to confirm' });
+  });
+
+  test('typed email: case and surrounding spaces ignored; anything else refused', () => {
+    const target = getDeleteConfirmationTarget({ email: 'aisyah@example.test', uid: 'uid-1' });
+    for (const typed of ['aisyah@example.test', ' AISYAH@example.TEST ']) {
+      assert.equal(confirmationMatches(typed, target), true, typed);
+    }
+    for (const typed of ['', 'aisyah@example', 'aisyah@example.test.', 'uid-1', 'aisyah @example.test', null, undefined, 5]) {
+      assert.equal(confirmationMatches(typed, target), false, String(typed));
+    }
+  });
+
+  test('typed account ID: exact apart from surrounding spaces; no target matches nothing', () => {
+    const target = getDeleteConfirmationTarget({ email: '  ', uid: 'AbC-123' });
+    assert.equal(target.kind, 'uid');
+    assert.equal(confirmationMatches('AbC-123', target), true);
+    assert.equal(confirmationMatches(' AbC-123 ', target), true);
+    assert.equal(confirmationMatches('abc-123', target), false);
+    assert.equal(confirmationMatches('', getDeleteConfirmationTarget({})), false);
+    assert.equal(confirmationMatches('x', null), false);
+  });
+});
+
+describe('M3B-3 deletion outcomes', () => {
+  test('success is reported, with any audit or lock problem disclosed', () => {
+    assert.deepEqual(describeActionSuccess({ operation: 'delete', audit_recorded: true, lock_released: true }), {
+      tone: 'success', title: 'Account deleted',
+      message: "The account and the student's data have been permanently deleted. Only a minimal deletion record is kept." });
+    const partial = describeActionSuccess({ operation: 'delete', audit_recorded: false, lock_released: false });
+    assert.equal(partial.tone, 'warning');
+    assert.match(partial.message, /audit record could not be completed/);
+    assert.match(partial.message, /Incomplete deletions/);
+  });
+
+  test('the notice carried to Manage Users holds two flags only', () => {
+    const state = deletionNoticeState({ operation: 'delete', operation_id: 'op-1', audit_recorded: true, lock_released: false,
+      account: { uid: 'uid-1', email: 'someone@example.test' } });
+    assert.deepEqual(state, { accountDeleted: { audit_recorded: true, lock_released: false } });
+    assert.equal(getDeletionNotice(state).title, 'Account deleted');
+    assert.equal(getDeletionNotice(state).tone, 'warning');
+    assert.equal(getDeletionNotice({ accountDeleted: { audit_recorded: true, lock_released: true } }).tone, 'success');
+    for (const value of [null, undefined, {}, { accountDeleted: 'yes' }, { other: 1 }]) {
+      assert.equal(getDeletionNotice(value), null);
+    }
+  });
+
+  test('an unfinished deletion is never reported as success and names what to do next', () => {
+    const error = new AdminUsersRequestError(503, 'OPERATION_INCOMPLETE',
+      { operation: 'delete', operation_id: 'op-2', failed_step: 'finalize_record', reason: 'STORE_UNAVAILABLE' });
+    const info = describeActionError(error);
+    assert.equal(info.tone, 'error');
+    assert.equal(info.title, 'The deletion did not finish');
+    assert.match(info.message, /recording the deletion as complete: Firestore could not be reached/);
+    assert.match(info.message, /resume it to finish/);
+    assert.doesNotMatch(info.message, /safe state|Nothing was changed/);
+    const admin = describeActionError(new AdminUsersRequestError(503, 'OPERATION_INCOMPLETE',
+      { operation: 'delete', failed_step: 'check_admin_before_auth_deletion', reason: 'ADMIN_TARGET' }));
+    assert.match(admin.message, /now an administrator account, so the deletion will not continue/);
+  });
+
+  test('deletion refusals have fixed messages', () => {
+    const cases = {
+      ACCOUNT_DELETION_IN_PROGRESS: ['Deletion in progress', 'error'],
+      ACCOUNT_DELETED: ['Already deleted', 'info'],
+      DELETE_NOT_ALLOWED: ['Cannot delete this account now', 'error'],
+      DELETE_CONFIRMATION_MISMATCH: ['Deletion not confirmed', 'error'],
+    };
+    for (const [code, [title, tone]] of Object.entries(cases)) {
+      const info = describeActionError(new AdminUsersRequestError(code === 'DELETE_CONFIRMATION_MISMATCH' ? 422 : 409, code));
+      assert.deepEqual([info.title, info.tone], [title, tone], code);
+      assert.match(info.message, /Nothing was changed/, code);
+    }
+  });
+
+  test('incomplete-deletions loading errors: hidden without account actions or on sign-in problems', () => {
+    assert.equal(describeIncompleteDeletionsError(new AdminUsersRequestError(404, null)), null);
+    assert.equal(describeIncompleteDeletionsError(apiAuthError(401)), null);
+    assert.equal(describeIncompleteDeletionsError(apiAuthError(403)), null);
+    assert.match(describeIncompleteDeletionsError(new TypeError('Failed to fetch')), /Can't reach/);
+    assert.match(describeIncompleteDeletionsError(new AdminUsersRequestError(503, 'ACCOUNT_ACTION_UNAVAILABLE')),
+      /could not be checked/);
+  });
+});
+
+describe('L1: protected-account refusals are not reported as missing admin access', () => {
+  test('a 403 with a protected-target code shows the refusal, not "Admin access not confirmed"', () => {
+    const self = describeActionError(apiAuthError(403, 'SELF_ACTION_FORBIDDEN'));
+    assert.deepEqual([self.title, self.tone], ['Not allowed', 'error']);
+    assert.match(self.message, /your own account\. Nothing was changed/);
+    const admin = describeActionError(apiAuthError(403, 'ADMIN_TARGET_FORBIDDEN'));
+    assert.match(admin.message, /Administrator accounts cannot be disabled, enabled or deleted here/);
+  });
+
+  test('every other 401 and 403 keeps its meaning', () => {
+    assert.equal(describeActionError(apiAuthError(403)).title, 'Admin access not confirmed');
+    assert.equal(describeActionError(apiAuthError(403, 'SOMETHING_ELSE')).title, 'Admin access not confirmed');
+    assert.equal(describeActionError(apiAuthError(403, 'ACCOUNT_DELETED')).title, 'Admin access not confirmed');
+    assert.equal(describeActionError(apiAuthError(401, 'SELF_ACTION_FORBIDDEN')).title, 'Session expired');
+    assert.equal(describeActionError(apiAuthError(401, 'ADMIN_TARGET_FORBIDDEN')).title, 'Session expired');
   });
 });
