@@ -33,6 +33,14 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+# Test isolation (M3C audit A2): importing the integration_tests package refuses to continue unless both emulator
+# hosts are loopback and the project is a demo- project, and installs the emulator-mode guards, before any
+# Firebase, Google or application import, also when this file is executed directly. The checks below are kept.
+import integration_tests  # noqa: E402,F401
+from tests import isolation  # noqa: E402
+
+isolation.require_guards(isolation.EMULATOR)
+
 from core import firebase as core_firebase  # noqa: E402
 
 AUTH_HOST = os.environ.get("FIREBASE_AUTH_EMULATOR_HOST")

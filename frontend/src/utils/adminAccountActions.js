@@ -54,6 +54,8 @@ const REASON_LABELS = {
   INTERNAL_ERROR: 'an unexpected server error occurred',
   ADMIN_TARGET: 'the account became an administrator account',
   LOCK_LOST: 'another request took over this operation',
+  LOCK_CONTENTION: 'its operation record stayed busy because of simultaneous requests',
+  LEASE_EXPIRED: 'it ran longer than its time limit allows',
   NESTED_DATA: "the student's documents contain nested data that this tool does not delete",
   DATA_REMAINS: 'some student data was still present afterwards',
 };
@@ -94,6 +96,33 @@ const unfinished = (op) => {
 
 const recordShowsDeletion = (access) => ['deleting', 'deleted'].includes(access?.record?.state);
 
+// How long a running operation's lock blocks the account if its process stopped (M3C, DL14/DA4): the server
+// only lets it be resumed after its lease AND a takeover grace period, about 35 minutes after its last
+// activity. Kept in step with LEASE_SECONDS + TAKEOVER_GRACE_SECONDS in account_action_service.py.
+export const STALE_LOCK_MINUTES = 35;
+
+// A server timestamp (ISO 8601) shown in the viewer's local time, or null if it is not a valid time.
+export const formatServerTime = (iso) => {
+  if (typeof iso !== 'string' || !iso) return null;
+  const time = new Date(iso);
+  return Number.isNaN(time.getTime()) ? null : time.toLocaleString();
+};
+
+// What a running ("in progress") operation means for the administrator. It may really be running (it then
+// finishes within a few minutes), or its process may have stopped without recording an outcome; the server
+// treats it as running until `resumable_after`, so nothing can be done before then except refreshing.
+const runningDescription = (access) => {
+  const operation = access.operation ?? {};
+  const who = operation.started_by_you ? 'You started' : 'Another administrator started';
+  const what = operation.operation === 'delete' ? 'a deletion of this account' : 'a change to this account';
+  const after = formatServerTime(operation.resumable_after);
+  const resume = after
+    ? `it can be resumed after ${after}`
+    : `it can be resumed about ${STALE_LOCK_MINUTES} minutes after its last activity`;
+  return `${who} ${what} that has not finished. If it is still running, it normally finishes within a few minutes. `
+    + `If it stopped (for example, because the server restarted), ${resume}. Refresh to check its progress.`;
+};
+
 // What the "Account access" card shows: { state, label, tone, description, details }.
 export const describeAccountAccess = (access) => {
   const state = access?.state;
@@ -131,10 +160,8 @@ export const describeAccountAccess = (access) => {
       description: 'This account has been permanently deleted. Only a minimal deletion record is kept.' };
   }
   if (state === 'in_progress') {
-    const who = access.operation?.started_by_you ? 'You started' : 'Another administrator started';
-    const what = access.operation?.operation === 'delete' ? 'a deletion of this account' : 'a change to this account';
     return { state, label: access.operation?.operation === 'delete' ? 'Deletion in progress' : 'Change in progress',
-      tone: 'info', details: [], description: `${who} ${what} that is still running. Refresh in a moment.` };
+      tone: 'info', details: [], description: runningDescription(access) };
   }
   if (state === 'protected') {
     const details = !access.is_self && recordShowsDeletion(access)
@@ -242,9 +269,10 @@ export const describeActionSuccess = (result) => {
   const notes = [];
   if (result?.audit_recorded === false) notes.push('The change was made, but its audit record could not be completed.');
   if (result?.lock_released === false) {
+    // DL14 / DA4 (M3C): the uncleared lock reads as running until its lease and grace period have passed.
     notes.push(operation === 'delete'
-      ? 'Its operation record could not be cleared, so it may still appear under "Incomplete deletions"; resuming it there clears it.'
-      : 'The account may show "Change in progress" for up to two minutes.');
+      ? `Its operation record could not be cleared, so the account may appear under "Incomplete deletions" as "Deletion in progress" for up to about ${STALE_LOCK_MINUTES} minutes. After that, resuming the deletion there clears it; nothing else needs to be done.`
+      : `Its operation record could not be cleared, so the account may show "Change in progress" for up to about ${STALE_LOCK_MINUTES} minutes. After that, resuming the change clears it.`);
   }
   const [title, base] = SUCCESS[operation];
   return { tone: notes.length ? 'warning' : 'success', title, message: [base, ...notes].join(' ') };

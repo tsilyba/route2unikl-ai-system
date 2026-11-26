@@ -120,6 +120,7 @@ class OperationState(BaseModel):
     reason: Optional[str]
     started_at: Optional[str]
     updated_at: Optional[str]
+    resumable_after: Optional[str]  # M3C (DL14): for a running lock, when it can be resumed if it has stopped
     started_by_you: bool
 
 

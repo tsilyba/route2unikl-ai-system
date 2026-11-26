@@ -8,6 +8,7 @@ from routes.admin_users import router as admin_users_router
 from routes.registration import registration_enabled, router as registration_router
 from routes.admin_account_actions import (account_actions_enabled, operations_router as account_operations_router,
                                           router as account_actions_router)
+from routes.account_self_service import router as self_service_router, self_service_enabled
 
 app = FastAPI(
     title="Route2UniKL API",
@@ -45,6 +46,11 @@ if account_actions_enabled():
                        tags=["Admin account actions (local emulator only)"])
     app.include_router(account_operations_router, prefix="/api/admin/account-operations",
                        tags=["Admin account actions (local emulator only)"])
+
+# Student self-service account deletion (M3C): mounted ONLY in Firebase emulator mode, like the account
+# actions it reuses. In production mode the route does not exist (and the router would answer 404).
+if self_service_enabled():
+    app.include_router(self_service_router, prefix="/api/account", tags=["Account (local emulator only)"])
 
 try:
     db = initialize_firebase()

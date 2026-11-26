@@ -59,13 +59,29 @@ action (409). If an operation stops part-way, its lock stays as 'incomplete' (al
 and the lease expires) with the failed step and a reason code: the account shows as incomplete, and the
 same action resumes it from the current state (every step is idempotent). Disable may also take over an
 incomplete Enable (the restricting direction); Enable may not take over an incomplete Disable. Delete
-never takes over another operation, and no other operation takes over a deletion. Delete locks have a
-longer lease that is renewed, with a precondition, before every step: if another process has taken the
-lock, the deletion stops (LOCK_LOST). A renewal cannot interrupt a Firebase call already in flight, so a
-running deletion lock can be taken over only after its lease AND a grace period longer than the
-slowest step's worst-case Admin SDK calls have passed. This is a timing assumption, not a fence for
-Firebase Authentication writes; it is safe because every Auth write of a deletion moves the same way
-(disable, delete), Enable never runs on an account in deletion, and Firestore writes are version-checked.
+never takes over another operation, and no other operation takes over a deletion.
+
+Lock ownership (M3B-3 for deletions; every operation since M3C, audit finding M1): the lease is renewed,
+with a precondition on the lock's update time, before every step and before the verification. If another
+process has taken the lock over, the operation stops there (LOCK_LOST) before making any further change,
+and leaves the lock to its new owner. A renewal that Firestore aborts because of contention is not a lost lock
+(ML10): the lock is re-read, and the renewal is retried a bounded number of times, with the same precondition,
+only while the lock is verified to be unchanged and still this operation's (see _renew_lock). A renewal cannot interrupt a Firebase call already in flight, so a
+RUNNING lock of any operation can be taken over only after its lease AND a grace period longer than the
+slowest step's worst-case Admin SDK calls (TAKEOVER_GRACE_SECONDS). In addition, Disable and Enable
+re-read the access record immediately before each Firebase Authentication write and stop (RECORD_CHANGED)
+unless it is still exactly the version this operation last wrote or confirmed: a stale operation whose
+record was changed by a newer one never writes to Auth afterwards. These are a timing assumption and a
+narrowing check, NOT a fence: Firebase Authentication writes cannot be made conditional, so an Auth call
+that is delayed beyond the grace period (for example, a suspended process) could still land after a newer
+operation. Its effect is bounded: the access record is version-checked and never re-activated by a stale
+operation, so Firestore (guard) and the backend's student-data endpoints (core/student_access.py) stay
+closed; the account then shows as 'inconsistent' and Disable makes it consistent again.
+
+Self-service deletion (M3C, emulator only): delete_own_account() runs the same deletion steps with the
+student as the actor. The route (routes/account_self_service.py) requires a recent sign-in and a session
+the access record accepts; here, only an 'active' account (or the student's own unfinished deletion) may
+be deleted, never an administrator.
 
 Refused without any change: the caller's own account, accounts with the admin custom claim, Auth
 accounts that do not exist (except an unfinished deletion), and missing or malformed records (records are
@@ -95,12 +111,18 @@ logger = logging.getLogger("account_action_service")
 
 LOCK_COLLECTION = "account_operations"
 AUDIT_COLLECTION = "account_audit"
-LEASE_SECONDS = 120
-DELETE_LEASE_SECONDS = 300            # renewed before every deletion step
-# A running deletion is taken over only after its lease AND this grace period (35 minutes after its last
+LEASE_SECONDS = 300                   # every operation; renewed before every step (M3C: also Disable/Enable)
+# A running operation is taken over only after its lease AND this grace period (35 minutes after its last
 # renewal): longer than the slowest step, which makes two Admin SDK calls of up to about 10 minutes each
 # (120 s per attempt, up to 4 retries). A timing assumption, not a fence (see the module docstring).
-DELETE_TAKEOVER_GRACE_SECONDS = 1800
+TAKEOVER_GRACE_SECONDS = 1800
+# Names kept from M3B-3 (deletion locks); since M3C every operation uses the same values.
+DELETE_LEASE_SECONDS = LEASE_SECONDS
+DELETE_TAKEOVER_GRACE_SECONDS = TAKEOVER_GRACE_SECONDS
+# Lock renewal under Firestore contention (ML10): at most this many attempts in all, with these waits between
+# them (0.35 s at most). Retried only for Aborted while the lock is verified to be unchanged and still owned.
+RENEW_MAX_ATTEMPTS = 4
+RENEW_BACKOFF_SECONDS = (0.05, 0.1, 0.2)
 ENABLE_SETTLE_SECONDS = 3.0
 REVOCATION_MARGIN_SECONDS = 1.1
 WRITE_TIMEOUT_SECONDS = 10
@@ -157,6 +179,8 @@ REASON_UNEXPECTED_STATE = "UNEXPECTED_STATE"
 REASON_INTERNAL = "INTERNAL_ERROR"
 REASON_ADMIN_TARGET = "ADMIN_TARGET"            # an admin claim appeared during the deletion
 REASON_LOCK_LOST = "LOCK_LOST"                  # another process took the lock; this one stopped
+REASON_LOCK_CONTENTION = "LOCK_CONTENTION"      # the lock stayed this operation's, but Firestore kept aborting its renewal
+REASON_LEASE_EXPIRED = "LEASE_EXPIRED"          # lease + grace passed before a renewal; stopped before going on
 REASON_NESTED_DATA = "NESTED_DATA"              # a student document has subcollections
 REASON_DATA_REMAINS = "DATA_REMAINS"            # a student document still exists after the deletion
 
@@ -210,6 +234,8 @@ class OperationLock:
     reason: Optional[str]
     started_at: Optional[datetime]
     updated_at: Optional[datetime]
+    # For a running lock: when it may be taken over (lease + grace) if its process has stopped (M3C, DL14).
+    resumable_after: Optional[datetime] = None
 
 
 @dataclass(frozen=True)
@@ -243,6 +269,7 @@ class _HeldLock:
     update_time: Any
     previous: Optional[OperationLock]
     previous_data: Optional[Dict[str, Any]]
+    lease_expires_at: Optional[datetime] = None  # the lease this operation last wrote (ML10)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -269,25 +296,30 @@ def _precondition(db, update_time):
 
 
 def _lease_seconds(operation: str) -> int:
-    return DELETE_LEASE_SECONDS if operation == DELETE else LEASE_SECONDS
+    return LEASE_SECONDS
 
 
 def _lock_from_data(data: Dict[str, Any], now: datetime) -> OperationLock:
     status = data.get("status")
     lease = data.get("leaseExpiresAt")
-    # A deletion's lock counts as abandoned only after its lease AND a grace period longer than any
-    # Firebase call it may still have in flight (a lease renewal cannot interrupt such a call).
-    grace = timedelta(seconds=DELETE_TAKEOVER_GRACE_SECONDS if data.get("operation") == DELETE else 0)
-    if status == LOCK_RUNNING and not (isinstance(lease, datetime) and lease.tzinfo is not None
-                                       and lease + grace > now):
+    # A running lock counts as abandoned only after its lease AND a grace period longer than any Firebase
+    # call it may still have in flight (a lease renewal cannot interrupt such a call). Since M3C this
+    # applies to every operation, not only deletions (audit finding M1).
+    grace = timedelta(seconds=TAKEOVER_GRACE_SECONDS)
+    valid_lease = isinstance(lease, datetime) and lease.tzinfo is not None
+    resumable_after = None
+    if status == LOCK_RUNNING and not (valid_lease and lease + grace > now):
         status = LOCK_INCOMPLETE  # the process stopped without recording an outcome
     if status not in (LOCK_RUNNING, LOCK_INCOMPLETE):
         status = LOCK_INCOMPLETE
+    if status == LOCK_RUNNING:
+        resumable_after = lease + grace
     operation = data.get("operation")
     text = lambda key: data.get(key) if isinstance(data.get(key), str) else None  # noqa: E731
     stamp = lambda key: data.get(key) if isinstance(data.get(key), datetime) else None  # noqa: E731
     return OperationLock(text("operationId"), operation if operation in ACTIONS else None, status,
-                         text("actorUid"), text("failedStep"), text("reason"), stamp("startedAt"), stamp("updatedAt"))
+                         text("actorUid"), text("failedStep"), text("reason"), stamp("startedAt"), stamp("updatedAt"),
+                         resumable_after)
 
 
 def _classify(auth_status: str, is_admin: bool, is_self: bool, lookup: access.RecordLookup,
@@ -318,7 +350,9 @@ def _classify(auth_status: str, is_admin: bool, is_self: bool, lookup: access.Re
     return STATE_INCONSISTENT, (DISABLE, ENABLE)
 
 
-def _load_view(db, uid: str, actor_uid: str, *, lock: Any = _STORED) -> AccountView:
+def _load_view(db, uid: str, actor_uid: str, *, lock: Any = _STORED, self_service: bool = False) -> AccountView:
+    """The account as administrators see it. With self_service (M3C), the actor is the account's own
+    student: the account is not 'protected' merely because it is the actor's own."""
     try:
         account = firebase_auth.get_user(uid)
     except firebase_auth.UserNotFoundError:
@@ -349,7 +383,7 @@ def _load_view(db, uid: str, actor_uid: str, *, lock: Any = _STORED) -> AccountV
         # Anything other than an explicit False is treated as disabled (fail closed), as in account_access_service.
         auth_status = access.AUTH_ENABLED if account.disabled is False else access.AUTH_DISABLED
     is_admin = account is not None and is_admin_account(account)
-    is_self = uid == actor_uid
+    is_self = uid == actor_uid and not self_service
     state, allowed = _classify(auth_status, is_admin, is_self, record.lookup, lock)
     return AccountView(uid, auth_status, is_admin, is_self, record, lock,
                        access.consistency_issues(auth_status, record.lookup), state, allowed)
@@ -398,7 +432,7 @@ def _acquire_lock(db, uid: str, operation: str, actor_uid: str) -> _HeldLock:
             "previousOperationId": None, "startedAt": SERVER_TIMESTAMP, "updatedAt": SERVER_TIMESTAMP}
     try:
         result = ref.create(data, retry=None, timeout=WRITE_TIMEOUT_SECONDS)
-        return _HeldLock(ref, operation_id, operation, result.update_time, None, None)
+        return _HeldLock(ref, operation_id, operation, result.update_time, None, None, data["leaseExpiresAt"])
     except (google_exceptions.AlreadyExists, google_exceptions.Aborted):
         pass  # a lock exists (or a concurrent create): decide below from what is stored
     except Exception as exc:
@@ -431,7 +465,7 @@ def _acquire_lock(db, uid: str, operation: str, actor_uid: str) -> _HeldLock:
     except Exception as exc:
         logger.error("Account actions: lock not taken over (uid=%s): %s", uid, type(exc).__name__)
         raise AccountActionError(ACCOUNT_ACTION_UNAVAILABLE, operation=operation) from None
-    return _HeldLock(ref, operation_id, operation, result.update_time, existing, stored)
+    return _HeldLock(ref, operation_id, operation, result.update_time, existing, stored, data["leaseExpiresAt"])
 
 
 def _abandon(db, held: _HeldLock) -> None:
@@ -456,24 +490,97 @@ def _release(db, held: _HeldLock) -> bool:
         return False
 
 
+_LOCK_UNCHANGED = "unchanged"   # still this operation's lock, exactly as it last wrote it: the write was not applied
+_LOCK_APPLIED = "applied"       # still this operation's lock, and it holds exactly the lease this attempt wrote
+_LOCK_LOST = "lost"             # missing, another operation's, no longer running, or changed by an unknown write
+
+
+def _lock_state_after_failed_renewal(held: _HeldLock, attempted_lease: datetime) -> Tuple[str, Any]:
+    """Re-read the lock to decide what a failed renewal means (ML10). Raises if the lock cannot be read.
+
+    Ownership is proved by the operation identifier (a fresh uuid4 per operation; a takeover always writes a new
+    one) and the 'running' status; whether the write landed, by the document's update time and the exact lease
+    value this attempt wrote. Anything else counts as lost: fail closed.
+    """
+    snapshot = held.ref.get(retry=None, timeout=WRITE_TIMEOUT_SECONDS)
+    data = (snapshot.to_dict() or {}) if snapshot.exists else {}
+    if not snapshot.exists or data.get("operationId") != held.operation_id or data.get("status") != LOCK_RUNNING:
+        return _LOCK_LOST, snapshot
+    if snapshot.update_time == held.update_time:
+        return _LOCK_UNCHANGED, snapshot
+    if data.get("leaseExpiresAt") == attempted_lease:
+        return _LOCK_APPLIED, snapshot
+    return _LOCK_LOST, snapshot
+
+
 def _renew_lock(db, held: _HeldLock) -> None:
     """Extend the lease, only if this operation still owns the lock (precondition on its update time).
 
-    Used before every deletion step: if another process has taken the lock over, the deletion stops here
-    (LOCK_LOST) before making any further change. It cannot stop a Firebase call that is already in flight;
-    the takeover grace period (DELETE_TAKEOVER_GRACE_SECONDS) covers that.
+    Used before every step of every operation: if another process has taken the lock over, the operation stops
+    here (LOCK_LOST) before making any further change. It cannot stop a Firebase call that is already in flight;
+    the takeover grace period (TAKEOVER_GRACE_SECONDS) covers that.
+
+    Failures are told apart (ML10; before, every one of the first three was reported as LOCK_LOST):
+      * FailedPrecondition / NotFound: the lock was changed or removed since this operation last wrote it, i.e.
+        a genuine change of ownership -> LOCK_LOST at once, no retry.
+      * Aborted: Firestore contention (for example, other requests trying to create the same lock at the same
+        moment). Firestore did not apply the write. The lock is re-read: if it is no longer this operation's ->
+        LOCK_LOST; if it is unchanged -> retried with the SAME precondition after a short backoff, at most
+        RENEW_MAX_ATTEMPTS attempts in all, then LOCK_CONTENTION (fail closed; recorded and resumable).
+      * Any other error (timeout, unavailable, unexpected): the outcome is unknown. The lock is re-read once to
+        find out; if this attempt's lease is stored -> renewed; if unchanged -> STORE_UNAVAILABLE (no retry: the
+        write might still land); otherwise LOCK_LOST.
+      * A re-read that fails -> STORE_UNAVAILABLE.
+      * Lease expiry: if lease + grace had already passed before the renewal (another process may consider this
+        operation abandoned), it stops with LEASE_EXPIRED instead of renewing.
+    Every write keeps the precondition; nothing is written unconditionally and no lock is ever taken over here.
     """
-    try:
-        result = held.ref.update({"leaseExpiresAt": _now() + timedelta(seconds=_lease_seconds(held.operation)),
-                                  "updatedAt": SERVER_TIMESTAMP},
-                                 option=_precondition(db, held.update_time), retry=None, timeout=WRITE_TIMEOUT_SECONDS)
-    except (google_exceptions.FailedPrecondition, google_exceptions.NotFound, google_exceptions.Aborted):
-        logger.error("Account actions: lock lost; stopping (operation_id=%s)", held.operation_id)
-        raise _StepFailure(REASON_LOCK_LOST) from None
-    except Exception as exc:
-        logger.error("Account actions: lock renewal failed (operation_id=%s): %s", held.operation_id, type(exc).__name__)
-        raise _StepFailure(REASON_STORE_UNAVAILABLE) from None
-    held.update_time = result.update_time
+    if held.lease_expires_at is not None and _now() >= held.lease_expires_at + timedelta(seconds=TAKEOVER_GRACE_SECONDS):
+        logger.error("Account actions: lease and grace expired before renewal; stopping (operation_id=%s)",
+                     held.operation_id)
+        raise _StepFailure(REASON_LEASE_EXPIRED)
+    for attempt in range(1, RENEW_MAX_ATTEMPTS + 1):
+        lease = _now() + timedelta(seconds=_lease_seconds(held.operation))
+        try:
+            result = held.ref.update({"leaseExpiresAt": lease, "updatedAt": SERVER_TIMESTAMP},
+                                     option=_precondition(db, held.update_time), retry=None,
+                                     timeout=WRITE_TIMEOUT_SECONDS)
+        except (google_exceptions.FailedPrecondition, google_exceptions.NotFound) as exc:
+            logger.error("Account actions: lock lost; stopping (operation_id=%s): %s", held.operation_id,
+                         type(exc).__name__)
+            raise _StepFailure(REASON_LOCK_LOST) from None
+        except google_exceptions.Aborted:
+            contention = True
+        except Exception as exc:
+            logger.error("Account actions: lock renewal outcome unknown (operation_id=%s): %s", held.operation_id,
+                         type(exc).__name__)
+            contention = False
+        else:
+            held.update_time, held.lease_expires_at = result.update_time, lease
+            return
+
+        try:
+            state, snapshot = _lock_state_after_failed_renewal(held, lease)
+        except Exception as exc:
+            logger.error("Account actions: lock not readable after a failed renewal (operation_id=%s): %s",
+                         held.operation_id, type(exc).__name__)
+            raise _StepFailure(REASON_STORE_UNAVAILABLE) from None
+        if state == _LOCK_APPLIED:
+            held.update_time, held.lease_expires_at = snapshot.update_time, lease
+            logger.info("Account actions: lock renewal confirmed by re-reading (operation_id=%s)", held.operation_id)
+            return
+        if state == _LOCK_LOST:
+            logger.error("Account actions: lock lost; stopping (operation_id=%s)", held.operation_id)
+            raise _StepFailure(REASON_LOCK_LOST)
+        if not contention:
+            raise _StepFailure(REASON_STORE_UNAVAILABLE)
+        if attempt == RENEW_MAX_ATTEMPTS:
+            logger.error("Account actions: lock renewal still contended after %s attempts; stopping (operation_id=%s)",
+                         attempt, held.operation_id)
+            raise _StepFailure(REASON_LOCK_CONTENTION)
+        logger.warning("Account actions: lock renewal contended; retrying (operation_id=%s, attempt=%s)",
+                       held.operation_id, attempt)
+        _sleep(RENEW_BACKOFF_SECONDS[attempt - 1])
 
 
 def _mark_incomplete(db, held: _HeldLock, step: Optional[str], reason: str) -> bool:
@@ -570,6 +677,8 @@ def _restrict_record(run: _Run) -> None:
 
 def _disable_auth(run: _Run) -> None:
     if _auth_enabled(run.uid):
+        # Stale-operation check (M3C): the record must still be the version this operation left it in.
+        _current_record(run, states=("disabled",))
         _set_auth_disabled(run.uid, True)
 
 
@@ -595,6 +704,12 @@ def _settle(run: _Run) -> None:
 
 
 def _enable_auth(run: _Run) -> None:
+    # Stale-Enable check (M3C): sign-in is re-enabled only while the record is still 'disabled', carries the
+    # threshold this operation set, and has not been changed by any other operation since. A newer Disable
+    # (or anything else) that changed the record stops this Enable before it writes to Auth.
+    snapshot = _current_record(run, states=("disabled",))
+    if snapshot.lookup.record.sessions_valid_after is None:
+        raise _StepFailure(REASON_RECORD_CHANGED)
     _set_auth_disabled(run.uid, False)
 
 
@@ -775,6 +890,29 @@ def delete_account(uid: str, actor_uid: str, confirm_uid: Any) -> ActionResult:
     return _run(DELETE, uid, actor_uid)
 
 
+# Self-service deletion (M3C) is allowed only from these states: an active account, or the student's own
+# unfinished deletion (resumed). Disabled, inconsistent, incomplete or unsupported accounts are refused.
+SELF_SERVICE_DELETE_STATES = (STATE_ACTIVE, STATE_DELETION_INCOMPLETE)
+
+
+def delete_own_account(uid: str, confirm_uid: Any) -> ActionResult:
+    """A student permanently deletes their OWN account (M3C, emulator only), or resumes their own unfinished
+    deletion: the M3B-3 deletion steps, with the student as the actor.
+
+    The caller (routes/account_self_service.py) passes the uid from the verified token, after checking a
+    recent sign-in and the session against the access record. `confirm_uid` must name the same account.
+    Administrators are refused (ADMIN_TARGET_FORBIDDEN), and only an 'active' account or the student's own
+    unfinished deletion is accepted. Locks, audit (actor = the student, requestedBy = 'student'), the
+    tombstone and recovery are those of the administrator deletion: an incomplete self-deletion is listed
+    under the administrators' "Incomplete deletions" and can be resumed there (or by the student, while
+    they can still sign in).
+    """
+    uid = _validate_uid(uid)
+    if not isinstance(confirm_uid, str) or confirm_uid != uid:
+        raise AccountActionError(DELETE_CONFIRMATION_MISMATCH, operation=DELETE)
+    return _run(DELETE, uid, uid, self_service=True)
+
+
 def list_incomplete_deletions(actor_uid: str) -> List[AccountView]:
     """Accounts whose deletion started but did not finish, including those whose Auth account is already
     gone (and which therefore no longer appear in the Auth-based Manage Users list). Read-only.
@@ -805,31 +943,41 @@ def list_incomplete_deletions(actor_uid: str) -> List[AccountView]:
     return views
 
 
-def _run(operation: str, uid: str, actor_uid: str) -> ActionResult:
+def _permitted(view: AccountView, operation: str, self_service: bool) -> bool:
+    if operation not in view.allowed_actions:
+        return False
+    return not self_service or view.state in SELF_SERVICE_DELETE_STATES
+
+
+def _run(operation: str, uid: str, actor_uid: str, *, self_service: bool = False) -> ActionResult:
     uid = _validate_uid(uid)
     if not isinstance(actor_uid, str) or not actor_uid:
         raise ValueError("The acting administrator's uid is required")
-    if uid == actor_uid:
+    if self_service and (operation != DELETE or uid != actor_uid):
+        raise ValueError("Self-service is only a student deleting their own account")
+    if uid == actor_uid and not self_service:
         raise AccountActionError(SELF_ACTION_FORBIDDEN, operation=operation)
     db = _db()
-    view = _load_view(db, uid, actor_uid)
-    if operation not in view.allowed_actions:
+    view = _load_view(db, uid, actor_uid, self_service=self_service)
+    if not _permitted(view, operation, self_service):
         raise _refusal(view, operation)
 
     held = _acquire_lock(db, uid, operation, actor_uid)
     # Re-read under the lock: another operation may have finished in between.
     try:
-        view = _load_view(db, uid, actor_uid, lock=held.previous)
+        view = _load_view(db, uid, actor_uid, lock=held.previous, self_service=self_service)
     except AccountActionError:
         _abandon(db, held)
         raise
-    if operation not in view.allowed_actions:
+    if not _permitted(view, operation, self_service):
         _abandon(db, held)
         raise _refusal(view, operation)
     deleting = operation == DELETE
     try:
-        # A deletion records which student documents existed (existence only, never their contents).
-        extra = {"dataPresentBefore": _data_present(db, uid)} if deleting else None
+        # A deletion records which student documents existed (existence only, never their contents), and
+        # who asked for it (M3C: an administrator, or the student through self-service).
+        extra = ({"dataPresentBefore": _data_present(db, uid),
+                  "requestedBy": "student" if self_service else "administrator"} if deleting else None)
         audit = _audit_start(db, held, uid, actor_uid, view, extra)
     except Exception as exc:
         logger.error("Account actions: audit record not created; nothing changed (uid=%s): %s", uid, type(exc).__name__)
@@ -845,14 +993,12 @@ def _run(operation: str, uid: str, actor_uid: str) -> ActionResult:
     data_after: Optional[Dict[str, bool]] = None
     try:
         for step, action in _steps_for(operation, view, held):
-            if deleting:
-                _renew_lock(db, held)  # stop before this step if another process took the lock
+            _renew_lock(db, held)  # stop before this step if another process took the lock (every operation)
             action(run)
         step = STEP_VERIFY
-        if deleting:
-            _renew_lock(db, held)
+        _renew_lock(db, held)
         try:
-            after = _load_view(db, uid, actor_uid, lock=None)
+            after = _load_view(db, uid, actor_uid, lock=None, self_service=self_service)
         except AccountActionError as exc:
             raise _StepFailure(REASON_ACCOUNT_REMOVED if exc.code == USER_NOT_FOUND else REASON_STORE_UNAVAILABLE) from None
         if not _reached(operation, after):
@@ -878,7 +1024,7 @@ def _run(operation: str, uid: str, actor_uid: str) -> ActionResult:
     if reason != REASON_LOCK_LOST:  # a lost lock belongs to another process now
         _mark_incomplete(db, held, step, reason)
     try:
-        current = _load_view(db, uid, actor_uid, lock=None)
+        current = _load_view(db, uid, actor_uid, lock=None, self_service=self_service)
     except AccountActionError:
         current = None
     extra = None
@@ -926,6 +1072,7 @@ def describe_view(view: AccountView, actor_uid: str) -> Dict[str, Any]:
             "reason": lock.reason,
             "started_at": iso(lock.started_at),
             "updated_at": iso(lock.updated_at),
+            "resumable_after": iso(lock.resumable_after),
             "started_by_you": lock.actor_uid is not None and lock.actor_uid == actor_uid,
         },
         "state": view.state,

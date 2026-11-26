@@ -73,7 +73,9 @@ bundled JSON and merge-wrote the 35 programmes from the browser.
 
 **`users/{uid}`**, written by `Register.jsx` (create); `ProfileIngestion.jsx`, `ManualGradeEntry.jsx`,
 `UploadResults.jsx`, `DummyAI.jsx`, `Recommendation.jsx`, `PreparationPlan.jsx` and `Profile.jsx` (update);
-`Profile.jsx` (delete).
+`Profile.jsx` (delete) until M3C. Since M3C (not yet committed) the app no longer deletes from the browser: in
+local emulator mode it uses a protected backend endpoint, and the production build offers no self-delete. The
+deployed rule still allows the owner's delete (see W1 below; PROJECT_STATUS.md section 8 M).
 
 - Create: exactly `name`, `email`, `role`, `createdAt`. `name` is a non-empty string of at most 100
   characters; `email` is a non-empty string (at most 254) equal to the token email; `role` is
@@ -253,7 +255,9 @@ These were simulations in the Firebase Console, not application tests.
 - The contents of `results` entries, `academicSnapshot`, `answers` and `scoresByPathway`.
 - **W1 (accepted in M1.5B):** an owner may delete and re-create their `users` document, which can
   change the student type and reset `createdAt`. It can never grant Admin (suite 12). Planned fix:
-  a protected FastAPI account-deletion endpoint, then remove the client `allow delete`.
+  a protected FastAPI account-deletion endpoint, then remove the client `allow delete`. M3C: the endpoint
+  exists for the local emulators only, and the client delete is removed from the test-only experimental
+  rules; this production rule is unchanged until a change is approved through section 5.
 
 **Production:** the gaps listed in section 4.8. **Process:** no CI runs the rules tests automatically.
 

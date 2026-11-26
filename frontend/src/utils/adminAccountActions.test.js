@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   ACCOUNT_ACTIONS,
   INCOMPLETE_DELETIONS_PATH,
+  STALE_LOCK_MINUTES,
   accountAccessPath,
   accountActionPath,
   confirmationMatches,
@@ -17,6 +18,7 @@ import {
   describeActionError,
   describeActionSuccess,
   describeIncompleteDeletionsError,
+  formatServerTime,
   getActionButtons,
   getConfirmation,
   getDeleteConfirmationTarget,
@@ -336,7 +338,7 @@ describe('M3B-3 deletion states', () => {
       'confirm_data_removed', 'check_admin_before_auth_deletion', 'delete_auth', 'finalize_record']) {
       assert.notEqual(getStepLabel(step), 'an unrecorded step', step);
     }
-    for (const reason of ['ADMIN_TARGET', 'LOCK_LOST', 'NESTED_DATA', 'DATA_REMAINS']) {
+    for (const reason of ['ADMIN_TARGET', 'LOCK_LOST', 'NESTED_DATA', 'DATA_REMAINS', 'LOCK_CONTENTION', 'LEASE_EXPIRED']) {
       assert.notEqual(getReasonLabel(reason), 'the reason was not recorded', reason);
     }
   });
@@ -389,6 +391,31 @@ describe('M3B-3 deletion outcomes', () => {
     assert.equal(partial.tone, 'warning');
     assert.match(partial.message, /audit record could not be completed/);
     assert.match(partial.message, /Incomplete deletions/);
+  });
+
+  test('M3C (DL14/DA4): a running lock explains when it can be resumed; no misleading "in a moment"', () => {
+    const resumableAfter = '2026-11-26T12:35:00Z';
+    const running = describeAccountAccess(access({ state: 'in_progress', allowed_actions: [],
+      operation: { operation: 'delete', started_by_you: true, resumable_after: resumableAfter } }));
+    assert.match(running.description, /^You started a deletion of this account that has not finished\./);
+    assert.match(running.description, /If it is still running, it normally finishes within a few minutes\./);
+    assert.ok(running.description.includes(`it can be resumed after ${formatServerTime(resumableAfter)}`));
+    assert.doesNotMatch(running.description, /Refresh in a moment/);
+    const unknownTime = describeAccountAccess(access({ state: 'in_progress', operation: { operation: 'disable',
+      resumable_after: 'not-a-time' } }));
+    assert.match(unknownTime.description, new RegExp(`about ${STALE_LOCK_MINUTES} minutes after its last activity`));
+    assert.equal(STALE_LOCK_MINUTES, 35, 'LEASE_SECONDS (300) + TAKEOVER_GRACE_SECONDS (1800) on the server');
+    assert.equal(formatServerTime(undefined), null);
+    assert.equal(formatServerTime(''), null);
+  });
+
+  test('M3C (DL14): an uncleared lock after success states the real waiting time', () => {
+    const deleted = describeActionSuccess({ operation: 'delete', audit_recorded: true, lock_released: false });
+    assert.match(deleted.message, /"Incomplete deletions" as "Deletion in progress" for up to about 35 minutes/);
+    assert.match(deleted.message, /After that, resuming the deletion there clears it/);
+    const disabled = describeActionSuccess({ operation: 'disable', audit_recorded: true, lock_released: false });
+    assert.match(disabled.message, /"Change in progress" for up to about 35 minutes/);
+    assert.doesNotMatch(disabled.message, /two minutes/);
   });
 
   test('the notice carried to Manage Users holds two flags only', () => {

@@ -16,6 +16,7 @@
 // Write payloads below mirror the exact shapes written by the React app so the
 // rules are verified against real application behaviour.
 
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import {
@@ -209,8 +210,11 @@ export const setupRulesEnvironment = ({ rulesFile, seed } = {}) => {
   return rules;
 };
 
-// The original 44 regression tests (sections 1-12), unchanged from Milestone 1.5B.
-export const defineRegressionTests = () => {
+// The original 44 regression tests (sections 1-12), unchanged from Milestone 1.5B for the production rules.
+// ownerCanDeleteProfile: the production rules let a student delete their own users document (Profile.jsx
+// before M3C; accepted limitation W1). The experimental rules (M3C) deny it, and pass false: the two tests
+// that depend on it then assert the denial instead, so both rule files still run all 44 tests.
+export const defineRegressionTests = ({ ownerCanDeleteProfile = true } = {}) => {
   // =============================================================================
   describe('1. Unauthenticated access to private student documents is denied', () => {
     it('cannot read users, results or ai_assessments documents', async () => {
@@ -489,9 +493,16 @@ export const defineRegressionTests = () => {
       await assertFails(updateDoc(ref, { ...snap.data(), name: 'Ali Updated', role: 'form_4_5' }));
     });
 
-    it('Profile.jsx delete account removes own users document (existing behaviour)', async () => {
-      await assertSucceeds(deleteDoc(doc(dbAs(STUDENT_A), 'users', STUDENT_A.uid)));
-    });
+    if (ownerCanDeleteProfile) {
+      it('Profile.jsx delete account removes own users document (existing behaviour)', async () => {
+        await assertSucceeds(deleteDoc(doc(dbAs(STUDENT_A), 'users', STUDENT_A.uid)));
+      });
+    } else {
+      it('a student cannot delete their own users document from the browser (M3C: backend deletion only)', async () => {
+        await assertFails(deleteDoc(doc(dbAs(STUDENT_A), 'users', STUDENT_A.uid)));
+        await assertSucceeds(getDoc(doc(dbAs(STUDENT_A), 'users', STUDENT_A.uid)));
+      });
+    }
 
     it('legacy student document (old role value + extra field) keeps working', async () => {
       const db = dbAs(LEGACY);
@@ -618,6 +629,19 @@ export const defineRegressionTests = () => {
 
   // =============================================================================
   describe('12. Known limitation W1 (accepted for 1.5B): re-creating own profile', () => {
+    if (!ownerCanDeleteProfile) {
+      it('W1 is closed (M3C): the profile cannot be deleted, so it cannot be re-created with another student type', async () => {
+        const db = dbAs(STUDENT_A);
+        const ref = doc(db, 'users', STUDENT_A.uid);
+        await assertFails(deleteDoc(ref));
+        await assertFails(setDoc(ref, registrationPayload(STUDENT_A, 'form_4_5')));
+        await assertFails(setDoc(ref, { ...registrationPayload(STUDENT_A), admin: true }));
+        const snap = await assertSucceeds(getDoc(ref));
+        assert.equal(snap.data().role, 'spm_leaver');
+        await assertFails(getDoc(doc(db, 'users', STUDENT_B.uid)));
+      });
+      return;
+    }
     it('can change the student type, but can never grant Admin or widen access', async () => {
       const db = dbAs(STUDENT_A);
       const ref = doc(db, 'users', STUDENT_A.uid);

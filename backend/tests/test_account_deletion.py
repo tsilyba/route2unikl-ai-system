@@ -633,7 +633,8 @@ class DeletionRouteTests(DeletionTestBase):
                 sys.modules.pop("main", None)
 
         self.assertEqual(paths({"ROUTE2UNIKL_FIREBASE_MODE": "production"}), [])
-        self.assertEqual(paths(VALID_EMULATOR_ENV), ["/api/admin/account-operations/incomplete-deletions",
+        self.assertEqual(paths(VALID_EMULATOR_ENV), ["/api/account/delete",  # M3C self-service, emulator only
+                                                     "/api/admin/account-operations/incomplete-deletions",
                                                      "/api/admin/users/{uid}/delete"])
 
 
@@ -672,14 +673,19 @@ class StudentDataAccessTests(DeletionTestBase):
         self.ai.assert_not_called()
         self.recommend.assert_not_called()
 
-    def test_active_disabled_and_missing_records_reach_the_handlers_unchanged(self):
-        for record in (ACTIVE, {"state": "disabled", "version": 2}, None):
+    def test_only_an_active_record_reaches_the_handlers(self):
+        # M3C: strict, fail-closed enforcement (the guard's decision). Before M3C, disabled and missing records
+        # reached the handlers (JL1); now only a well-formed 'active' record does.
+        self.store.put("account_access", STUDENT_UID, ACTIVE)
+        self.assertEqual(self.call("generate-questions", {"interests": ["engineering"]}).status_code, 200)
+        for record in ({"state": "disabled", "version": 2}, None, {"state": "active", "version": 1, "x": 1}):
             with self.subTest(record=record):
                 self.store.docs.clear()
                 if record:
                     self.store.put("account_access", STUDENT_UID, record)
-                self.assertEqual(self.call("generate-questions", {"interests": ["engineering"]}).status_code, 200)
-        self.assertEqual(self.ai.await_count, 3)
+                response = self.call("generate-questions", {"interests": ["engineering"]})
+                self.assertEqual((response.status_code, response.json()["detail"]["code"]), (403, "ACCOUNT_ACCESS_DENIED"))
+        self.assertEqual(self.ai.await_count, 1)
 
     def test_an_unreadable_record_fails_closed(self):
         self.store.fail[("get", "account_access")] = google_exceptions.ServiceUnavailable("down")

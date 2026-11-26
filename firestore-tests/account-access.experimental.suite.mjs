@@ -6,7 +6,10 @@
 // firebase.json does not reference (so `firebase deploy` never uses it), and runs
 //   - the original 44 regression tests (sections 1-12, shared with
 //     rules.test.mjs), with an active account_access record for every identity;
-//   - 56 account-access guard tests (sections 0 and 13-16).
+//     since M3C the two tests about the owner's profile delete assert that it is
+//     DENIED (these rules no longer allow a browser to delete users/{uid});
+//   - 56 account-access guard tests (sections 0 and 13-16);
+//   - M3C tests (section 17): no browser deletion of student documents.
 //
 // The file name deliberately does not match the node --test default patterns,
 // so `npm test` and a bare `node --test` run only the production baseline.
@@ -109,7 +112,8 @@ const expectEach = async (expectation, operations, context) => {
 };
 
 // Every operation the rules permit on an owner's EXISTING private documents
-// (STUDENT_B owns all three). The delete runs last.
+// (STUDENT_B owns all three). Since M3C no browser delete is permitted (see
+// ownerDeleteOps and section 17).
 const existingDocumentOps = (db, owner) => [
   ['get users', () => getDoc(doc(db, 'users', owner.uid))],
   ['get results', () => getDoc(doc(db, 'results', owner.uid))],
@@ -117,8 +121,11 @@ const existingDocumentOps = (db, owner) => [
   ['update users', () => updateDoc(doc(db, 'users', owner.uid), { currentStep: 3, updatedAt: new Date() })],
   ['update results', () => setDoc(doc(db, 'results', owner.uid), manualResultsPayload(owner))],
   ['update ai_assessments', () => setDoc(doc(db, 'ai_assessments', owner.uid), assessmentPayload(owner))],
-  ['delete users', () => deleteDoc(doc(db, 'users', owner.uid))],
 ];
+
+// Browser deletes of an owner's private documents: denied in every state (M3C).
+const ownerDeleteOps = (db, owner) => ['users', 'results', 'ai_assessments'].map((name) =>
+  [`delete ${name}`, () => deleteDoc(doc(db, name, owner.uid))]);
 
 // Every create the rules permit (NEW_STUDENT owns no documents yet).
 const createOps = (db, owner) => [
@@ -136,7 +143,7 @@ describe('0. Rules inventory: every allow on a private collection is guarded (M3
     ['/users/{uid}', 'get', 'isActiveOwner(uid)'],
     ['/users/{uid}', 'create', 'isActiveOwner(uid) && isValidNewUser()'],
     ['/users/{uid}', 'update', 'isActiveOwner(uid) && isValidUserUpdate()'],
-    ['/users/{uid}', 'delete', 'isActiveOwner(uid)'],
+    // M3C: no '/users/{uid}' delete. Deletion is the protected backend workflow only.
     ['/results/{uid}', 'get', 'isActiveOwner(uid)'],
     ['/results/{uid}', 'create,update', 'isActiveOwner(uid) && isValidResults(uid)'],
     ['/ai_assessments/{uid}', 'get', 'isActiveOwner(uid)'],
@@ -161,15 +168,17 @@ describe('0. Rules inventory: every allow on a private collection is guarded (M3
     assert.equal((code.match(/\ballow\b/g) ?? []).length, allows.length, 'every allow statement is on one line and was parsed');
     assert.deepEqual(allows, EXPECTED_ALLOWS);
     const privateAllows = allows.filter(([path]) => PRIVATE_PATHS.includes(path));
-    assert.equal(privateAllows.length, 8);
+    assert.equal(privateAllows.length, 7);
     for (const [path, methods, condition] of privateAllows) {
       assert.match(condition, /^isActiveOwner\(uid\)( && |$)/, `${path} ${methods}`);
+      assert.doesNotMatch(methods, /delete|write/, `${path}: no browser delete of student documents (M3C)`);
     }
   });
 });
 
-// Sections 1-12: the original 44 regression tests, run against the experimental rules.
-defineRegressionTests();
+// Sections 1-12: the original 44 regression tests, run against the experimental rules (M3C: the owner's
+// profile delete is denied, so its two tests assert the denial).
+defineRegressionTests({ ownerCanDeleteProfile: false });
 
 // =============================================================================
 describe('13. Account-access guard: only an active, well-formed record grants access (M3B-1B-P0)', () => {
@@ -408,5 +417,53 @@ describe('16. The guard never widens access: ownership, Admin claim and queries 
       ['collection group results', () => getDocs(collectionGroup(db, 'results'))],
       ['collection group ai_assessments', () => getDocs(collectionGroup(db, 'ai_assessments'))],
     ], 'active STUDENT_B');
+  });
+});
+
+// =============================================================================
+describe('17. No browser deletion of student documents (M3C)', () => {
+  // Account deletion is the protected backend workflow (Admin SDK: rules bypassed). A browser deletion left
+  // results / ai_assessments behind (S4) and let a student re-create their profile with another student type
+  // (S5/W1).
+  it('an active owner cannot delete any of their own documents; data unchanged', async () => {
+    const before = await backendView(STUDENT_B.uid);
+    await expectEach(assertFails, ownerDeleteOps(dbAs(STUDENT_B), STUDENT_B), 'active STUDENT_B');
+    assert.deepEqual(await backendView(STUDENT_B.uid), before);
+  });
+
+  it('a re-enabled owner with a fresh session still cannot delete their documents', async () => {
+    await setAccessRecord(STUDENT_B.uid, { state: 'active', version: 4, sessionsValidAfter: new Timestamp(S, 0) });
+    const fresh = dbAs(STUDENT_B, { auth_time: S + 3600 });
+    await expectEach(assertSucceeds, existingDocumentOps(fresh, STUDENT_B), 'control: fresh session is allowed');
+    await expectEach(assertFails, ownerDeleteOps(fresh, STUDENT_B), 'fresh session');
+  });
+
+  it('owners in any other state, other students, Admin and visitors cannot delete them either', async () => {
+    const callers = [
+      ['STUDENT_A on STUDENT_B', () => dbAs(STUDENT_A)],
+      ['Admin (admin: true)', adminDb],
+      ['admin: "true" string claim', stringClaimAdminDb],
+      ['signed-out visitor', anonDb],
+    ];
+    for (const [label, makeDb] of callers) {
+      await expectEach(assertFails, ownerDeleteOps(makeDb(), STUDENT_B), label);
+    }
+    for (const state of ['disabled', 'deleting', 'deleted']) {
+      await setAccessRecord(STUDENT_B.uid, { state, version: 2 });
+      await expectEach(assertFails, ownerDeleteOps(dbAs(STUDENT_B, { auth_time: S + 3600 }), STUDENT_B), state);
+    }
+    const view = await backendView(STUDENT_B.uid);
+    assert.ok(view.users && view.results && view.ai_assessments, 'every document still exists');
+  });
+
+  it('the backend deletion (rules bypassed) still removes all three documents, and they cannot be re-created', async () => {
+    const session = dbAs(STUDENT_B); // a session from before the deletion
+    await setAccessRecord(STUDENT_B.uid, { state: 'deleting', version: 2 });
+    await removePrivateDocuments(STUDENT_B.uid);
+    await setAccessRecord(STUDENT_B.uid, { state: 'deleted', version: 4 });
+    await expectEach(assertFails, createOps(session, STUDENT_B), 'deleted');
+    const view = await backendView(STUDENT_B.uid);
+    assert.deepEqual([view.users, view.results, view.ai_assessments], [null, null, null]);
+    assert.deepEqual(view.account_access, { state: 'deleted', version: 4 });
   });
 });

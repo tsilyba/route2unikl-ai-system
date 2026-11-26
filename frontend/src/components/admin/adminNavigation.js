@@ -34,7 +34,7 @@ export const ADMIN_NAV_ITEMS = Object.freeze([
     path: ADMIN_USERS_PATH,
     detailTitle: 'User Details',
     icon: 'users',
-    description: 'View student and administrator accounts (read-only).',
+    description: 'View accounts; disable, enable or delete student accounts (local emulator only).',
   }),
   Object.freeze({
     key: 'programmes',

@@ -21,6 +21,12 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+# Test isolation (M3C audit A2): installed by importing the tests package, before any Firebase, Google or
+# application import, also when this file is executed directly; the import fails if they cannot be installed.
+from tests import isolation  # noqa: E402
+
+isolation.require_guards(isolation.UNIT)
+
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from firebase_admin import auth as firebase_auth  # noqa: E402

@@ -54,6 +54,16 @@ class AuthenticatedUser:
     uid: str
     email: Optional[str]
     is_admin: bool
+    # The token's auth_time claim: when the user last signed in (whole seconds since the epoch), kept across
+    # token refreshes. None if the token has no integer auth_time. Used by core/student_access.py (M3C) to
+    # compare the session with the account-access record's sessionsValidAfter and to require a recent
+    # sign-in; never returned to clients.
+    auth_time: Optional[int] = None
+
+
+def _auth_time(decoded: dict) -> Optional[int]:
+    value = decoded.get("auth_time")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _unauthorized(detail: str) -> HTTPException:
@@ -155,6 +165,7 @@ def get_current_user(
         email=decoded.get("email"),
         # Strict boolean check: a string "true" or any other value is NOT admin.
         is_admin=decoded.get("admin") is True,
+        auth_time=_auth_time(decoded),
     )
 
 

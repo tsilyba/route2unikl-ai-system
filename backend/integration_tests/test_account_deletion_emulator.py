@@ -440,15 +440,18 @@ class AccountDeletionEmulatorTests(unittest.TestCase):
         self.assert_deleted(student, version=4)
         self.assertEqual([a["outcome"] for a in self.audits(student.uid)], ["completed"])
 
-    def test_11_active_and_disabled_records_reach_the_assessment_handlers_unchanged(self):
+    def test_11_only_active_records_reach_the_assessment_handlers(self):
         student = self.registered_student()
         id_token, _ = self.session(student)
         self.assertEqual(self.assessment(id_token, "generate-questions").status_code, 200)
         self.assertEqual(self.assessment(id_token, "recommend").status_code, 200)
         self.assertEqual((self.ai.await_count, self.recommend.call_count), (1, 1), "stubs only, no provider")
-        legacy = new_student()  # no access record (registered before the records existed)
-        response = sign_in(legacy)
-        self.assertEqual(self.assessment(response.json()["idToken"], "generate-questions").status_code, 200)
+        # M3C: strict enforcement. An account without a record (registered before the records existed) is
+        # refused, as the experimental guard refuses it (before M3C it reached the handlers).
+        legacy = new_student()
+        response = self.assessment(sign_in(legacy).json()["idToken"], "generate-questions")
+        self.assertEqual((response.status_code, response.json()["detail"]["code"]), (403, "ACCOUNT_ACCESS_DENIED"))
+        self.assertEqual(self.ai.await_count, 1)
 
     def test_12_production_mode_has_no_deletion_routes(self):
         student = self.registered_student()

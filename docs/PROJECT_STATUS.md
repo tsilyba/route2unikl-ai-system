@@ -5,7 +5,7 @@
 | Baseline date | 22 November 2026 (MYT) |
 | Branch | `feature/admin-module` |
 | Baseline commit | `2287868` (M1.5B), in sync with `origin/feature/admin-module` when this baseline was written |
-| Last updated | 26 November 2026 (MYT): M3B-3 Admin Delete Student Account, **local emulators only, not committed, not deployed; owner browser walkthrough on 26 Nov 2026 partially verified the D1–D14 plan (5 verified, 8 partially verified, 1 not verified; D4, D5 and D13 incomplete)**: permanent deletion of `active` or `disabled` student accounts (Firebase Authentication account, `users`, `results` and `ai_assessments` documents), with a typed-email confirmation in the browser and a uid confirmation checked by the server; access closed first, data deleted in one atomic Firestore batch, Auth deleted only after the data removal is confirmed, minimal tombstone and audit record kept; every failure recorded and resumable, including an Auth account already gone ("Incomplete deletions"); administrators protected at three points; deletion locks renewed with a takeover grace period; the backend's student-data endpoints refuse accounts in deletion (JL1, emulator mode only); the L1 403-message defect fixed; saving S3's results in the app during the walkthrough opened the AI-assessment page, so the AI generation workflow was triggered (external AI provider request not verified; browser test plan corrected); post-implementation security audit (26 Nov 2026): PASS WITH LIMITATIONS, acceptable only as a local-emulator development milestone, **not production-ready** ([section 8 L](#l-m3b-3--admin-delete-student-account-emulator-only)). M3B-2 (`e5e41a6`) Admin Disable & Enable accounts, **local emulators only, not deployed**: protected endpoints mounted only in emulator mode, coordinated with the account-access record, operation locks, audit records, resumable incomplete operations, and Manage Users controls; owner browser walkthrough on 26 Nov 2026: 13/13 conversational checkpoints passed (owner-reported); these do not map one-to-one to the 13 planned tests, of which 3 were verified, 7 partially verified, 1 not verified and 2 covered by automated tests only; Firestore rules rejection, audit-record contents and old refresh-token behaviour after Enable were not manually verified; post-implementation security audit (26 Nov 2026): PASS WITH LIMITATIONS, acceptable as a local-emulator development milestone, **not production-ready** (Medium findings M1–M3 open) ([section 8 K](#k-m3b-2--admin-disable--enable-accounts-emulator-only)). M3B-1B-P1-B2B/C (`7936909`) local account integration, **local emulators only, not deployed**: the backend mounts the registration route only when it starts in Firebase emulator mode, and the React dev server uses the emulators and backend registration only with `VITE_USE_FIREBASE_EMULATORS=true`; production behaviour unchanged; owner browser walkthrough in emulator mode completed on 26 Nov 2026 (11 of 11 steps passed, with recorded limitations), after a password-length defect found in step M5 was fixed in the frontend; registration passwords containing hidden control characters (Unicode `Cc`) are now refused on both registration paths and the backend (JL9 change; owner browser retest pending) ([section 8 J](#j-m3b-1b-p1-b2bc--local-account-integration-emulator-only)). M3B-1B-P1-B2A (`29fcdd3`) trusted backend registration, **local emulator testing only**, **not deployed** ([section 8 I](#i-m3b-1b-p1-b2a--trusted-backend-registration-emulator-only)). M3B-1B-P1-B1 (`6e3675f`) backend account-access service for `account_access/{uid}` records, backend-only, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
+| Last updated | 26 November 2026 (MYT): **M3C Account Lifecycle Security Hardening: IMPLEMENTED BUT UNCOMMITTED, local emulators only, not deployed; owner browser walkthrough completed with partial coverage; final security audit PASS WITH LIMITATIONS (27 Nov 2026)** ([section 8 M](#m-m3c--account-lifecycle-security-hardening-emulator-only)): Disable/Enable locks renewed with an ownership check before every step, a 35-minute takeover grace and a stale-operation record check before every Firebase Authentication write (audit finding M1 mitigated, not eliminated); the backend's student-data endpoints enforce the experimental guard's decision in emulator mode (missing, malformed, disabled and deletion records refused; sessions before `sessionsValidAfter` refused: JL1, KL1, DL3); student self-service deletion through a protected, emulator-only backend endpoint that reuses the M3B-3 deletion, with a recent sign-in required, replacing the unsafe browser deletion (S4, FL6, DL5); the owner's profile delete removed from the experimental rules (S5/W1 under the guard); DL14 texts corrected; production behaviour of the backend unchanged; the production app no longer offers self-delete. M3B-3 (`0c3d3b0`) Admin Delete Student Account, **local emulators only, not deployed; owner browser walkthrough on 26 Nov 2026 partially verified the D1–D14 plan (5 verified, 8 partially verified, 1 not verified; D4, D5 and D13 incomplete)**: permanent deletion of `active` or `disabled` student accounts (Firebase Authentication account, `users`, `results` and `ai_assessments` documents), with a typed-email confirmation in the browser and a uid confirmation checked by the server; access closed first, data deleted in one atomic Firestore batch, Auth deleted only after the data removal is confirmed, minimal tombstone and audit record kept; every failure recorded and resumable, including an Auth account already gone ("Incomplete deletions"); administrators protected at three points; deletion locks renewed with a takeover grace period; the backend's student-data endpoints refuse accounts in deletion (JL1, emulator mode only); the L1 403-message defect fixed; saving S3's results in the app during the walkthrough opened the AI-assessment page, so the AI generation workflow was triggered (external AI provider request not verified; browser test plan corrected); post-implementation security audit (26 Nov 2026): PASS WITH LIMITATIONS, acceptable only as a local-emulator development milestone, **not production-ready** ([section 8 L](#l-m3b-3--admin-delete-student-account-emulator-only)). M3B-2 (`e5e41a6`) Admin Disable & Enable accounts, **local emulators only, not deployed**: protected endpoints mounted only in emulator mode, coordinated with the account-access record, operation locks, audit records, resumable incomplete operations, and Manage Users controls; owner browser walkthrough on 26 Nov 2026: 13/13 conversational checkpoints passed (owner-reported); these do not map one-to-one to the 13 planned tests, of which 3 were verified, 7 partially verified, 1 not verified and 2 covered by automated tests only; Firestore rules rejection, audit-record contents and old refresh-token behaviour after Enable were not manually verified; post-implementation security audit (26 Nov 2026): PASS WITH LIMITATIONS, acceptable as a local-emulator development milestone, **not production-ready** (Medium findings M1–M3 open) ([section 8 K](#k-m3b-2--admin-disable--enable-accounts-emulator-only)). M3B-1B-P1-B2B/C (`7936909`) local account integration, **local emulators only, not deployed**: the backend mounts the registration route only when it starts in Firebase emulator mode, and the React dev server uses the emulators and backend registration only with `VITE_USE_FIREBASE_EMULATORS=true`; production behaviour unchanged; owner browser walkthrough in emulator mode completed on 26 Nov 2026 (11 of 11 steps passed, with recorded limitations), after a password-length defect found in step M5 was fixed in the frontend; registration passwords containing hidden control characters (Unicode `Cc`) are now refused on both registration paths and the backend (JL9 change; owner browser retest pending) ([section 8 J](#j-m3b-1b-p1-b2bc--local-account-integration-emulator-only)). M3B-1B-P1-B2A (`29fcdd3`) trusted backend registration, **local emulator testing only**, **not deployed** ([section 8 I](#i-m3b-1b-p1-b2a--trusted-backend-registration-emulator-only)). M3B-1B-P1-B1 (`6e3675f`) backend account-access service for `account_access/{uid}` records, backend-only, **not deployed** ([section 8 H](#h-m3b-1b-p1-b1--backend-account-access-service)). M3B-1B-P1-A (`7ec0ecb`) Firebase Authentication emulator foundation for local development and tests; the backend records its Firebase configuration at initialization, refuses emulator settings in production mode, and re-checks the configuration before and after every token verification (503 on any mismatch) ([section 8 G](#g-m3b-1b-p1-a--firebase-authentication-emulator-foundation)). M3B-1B-P0 experimental Firestore account-access guard (`d646700`), an emulator proof of concept in test-only files, **not deployed**, production rules unchanged ([section 8 F](#f-m3b-1b-p0--experimental-firestore-account-access-guard)). 23 November 2026 (MYT): Admin sign-out hardening (`69bcc07`); Admin fail-closed security & testing register added ([section 8](#8-admin-module--fail-closed-security--testing-register)); M3A Manage Users (read-only) committed (`4905ac0`), M3B deferred; M2 Admin Dashboard & Sidebar implemented; browser-side Gemini OCR disabled for security; M1.5C **deferred**; frontend provider-secret review; shared grade validation for both grade-entry pages (see [section 5](#ocr-status-m15c-deferred)) |
 | Production Firebase project | `route2unikl` |
 | Related documents | [CLAUDE.md](../CLAUDE.md) · [FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md) |
 
@@ -16,7 +16,7 @@ Every status claim in this document uses one of these labels.
 | Label | Meaning |
 |---|---|
 | **Repo-verified** | Implementation confirmed by reading the source code in this repository. |
-| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`, `test_firebase_config.py`, `test_account_access_service.py`, `test_registration.py`). |
+| **Unit tests** | Covered by the mocked FastAPI tests in `backend/tests/` (`test_auth.py`, `test_admin_users.py`, `test_firebase_config.py`, `test_account_access_service.py`, `test_registration.py`, `test_account_actions.py`, `test_account_deletion.py`, `test_account_lifecycle_hardening.py`). |
 | **Frontend unit tests** | Covered by the Node test-runner tests in `frontend/src/**/*.test.js` (run with `node --test "src/**/*.test.js"` in `frontend/`; synthetic data, no browser, Firebase or network). |
 | **Emulator tests** | Covered by the Firestore rules suite in `firestore-tests/` (local emulator, `demo-route2unikl`). |
 | **Emulator integration tests** | Covered by `backend/integration_tests/`: the backend against the local Firebase Authentication and Firestore emulators (`demo-route2unikl`), run with a separate command (section 8 G). Emulator results are not production evidence. |
@@ -35,7 +35,7 @@ Every status claim in this document uses one of these labels.
 | Login (local emulator mode only: a student whose Firestore access is refused is signed out with a message; section 8 J) | `frontend/src/pages/auth/Login.jsx`, `frontend/src/utils/accountAccess.js` | Repo-verified; Browser smoke test (production); Frontend unit tests (access check); Manual (emulator mode, owner-reported, 26 Nov 2026: steps M6–M9) |
 | Forgot password | `frontend/src/pages/auth/ForgotPassword.jsx` | Repo-verified; Untested |
 | Profile read and name edit | `frontend/src/pages/user/Profile.jsx` | Repo-verified; Emulator tests; Browser smoke test |
-| Profile "delete account" (browser deletion; leaves `results`, `ai_assessments` and the access record: S4, FL6; not changed by the M3B-3 Admin deletion) | `frontend/src/pages/user/Profile.jsx` | Repo-verified; Emulator tests (rules only); Untested in production |
+| Profile "delete account" (M3C): **local emulator mode only**, through the protected backend endpoint `POST /api/account/delete` after the student re-enters their password (recent sign-in required); the M3B-3 deletion steps remove the Auth account and `users`, `results`, `ai_assessments`, keep a tombstone and an audit record, and the browser signs out only after the server reports completion. The browser no longer deletes anything itself. **Production build: no self-delete** (the page asks the student to contact the administrator). Section 8 M | `frontend/src/pages/user/Profile.jsx`, `frontend/src/utils/selfDeletion.js`, `backend/routes/account_self_service.py` | Repo-verified; Unit tests; Frontend unit tests; Emulator integration tests (section 8 M); Manual: pending |
 | Interest selection (profile ingestion) | `frontend/src/pages/user/ProfileIngestion.jsx` | Repo-verified; Emulator tests (payload) |
 | Manual grade entry for Form 4/5 → `results/{uid}` | `frontend/src/pages/user/ManualGradeEntry.jsx` | Uses the shared grade validation (below). Repo-verified; Frontend unit tests (validation); Emulator tests (payload) |
 | SPM results page for SPM leavers → `results/{uid}` | `frontend/src/pages/user/UploadResults.jsx` | Automatic OCR **disabled** (M1.5C deferred); manual subject and grade entry only, using the shared grade validation (below), saved with the manual-entry values. Repo-verified; Frontend unit tests (validation); Emulator tests (manual-entry payload) |
@@ -90,7 +90,8 @@ AI output quality or OCR accuracy.
 | M3B-1B-P1-B2A — Trusted backend registration (emulator only) | `29fcdd3` | 24 Nov 2026 | 5 | Backend service and route that create the Auth account (Admin SDK), then the `users/{uid}` profile, then the active access record; strict input validation that never repeats the input; a partial failure disables the new account and returns 503 `REGISTRATION_INCOMPLETE`; router not mounted, 404 outside emulator mode; 24 new backend unit tests and 13 emulator integration tests (section 8 I). |
 | M3B-1B-P1-B2B/C — Local account integration (emulator only), with the JL9 password fix | `7936909` | 26 Nov 2026 | 15 | Registration route mounted only in emulator mode; React dev server on the emulators only with `VITE_USE_FIREBASE_EMULATORS=true`; emulator-mode registration through the backend and a login-time access check; password rule on both registration paths (6–128 characters, no control characters); 9 emulator integration tests; owner browser walkthrough 11/11 (section 8 J). |
 | M3B-2 — Admin Disable & Enable accounts (emulator only) | `e5e41a6` | 26 Nov 2026 | 14 | Disable and Enable routes mounted only in emulator mode; coordinated with the access record; operation locks, audit records, resumable incomplete operations; Account access panel; 42 backend unit and 10 emulator integration tests, 22 frontend unit tests (section 8 K). |
-| M3B-3 — Admin Delete Student Account (emulator only) | **Not committed** | 26 Nov 2026 | — | Permanent, recoverable deletion of student accounts and their `users`, `results` and `ai_assessments` documents; tombstone and audit; recovery list; student-data endpoints refuse accounts in deletion (emulator mode); L1 fixed; 38 backend unit, 14 emulator integration and 19 frontend unit tests; owner browser walkthrough partially verified the plan (D4, D5 and D13 incomplete); post-implementation audit PASS WITH LIMITATIONS; local-emulator development milestone only, not production-ready (section 8 L). |
+| M3B-3 — Admin Delete Student Account (emulator only) | `0c3d3b0` | 26 Nov 2026 | 20 | Permanent, recoverable deletion of student accounts and their `users`, `results` and `ai_assessments` documents; tombstone and audit; recovery list; student-data endpoints refuse accounts in deletion (emulator mode); L1 fixed; 38 backend unit, 14 emulator integration and 19 frontend unit tests; owner browser walkthrough partially verified the plan (D4, D5 and D13 incomplete); post-implementation audit PASS WITH LIMITATIONS; local-emulator development milestone only, not production-ready (section 8 L). |
+| M3C — Account Lifecycle Security Hardening (emulator only) | **Not committed** | 26 Nov 2026 | — | Disable/Enable lock hardening (renewal and ownership check before every step, takeover grace, stale-operation record check; M1 mitigated); strict student-data enforcement in emulator mode (JL1, KL1, DL3); emulator-only student self-deletion through the backend (S4, FL6, DL5); owner's profile delete removed from the experimental rules (S5/W1); DL14 texts; 41 backend unit, 11 emulator integration, 12 frontend unit and 4 rules tests; owner browser walkthrough with partial coverage; final audit PASS WITH LIMITATIONS (section 8 M). |
 
 Recorded test results (not re-run for this documentation baseline):
 
@@ -181,6 +182,25 @@ Recorded test results (not re-run for this documentation baseline):
   and 13 of 13 detected; lint and production build — unchanged. A scratch nested-data probe against a real
   scratch emulator passed 2/2. Findings: DA1 (Medium; test plan, corrected) and DA2–DA7 (Low) (section 8 L).
   Acceptable only as a local-emulator development milestone; not production-ready.
+- **M3C (Account Lifecycle Security Hardening, emulator only; not committed when recorded):** backend tests — 272 tests,
+  `OK` (231 existing, 7 of them updated for the intended behaviour changes; 41 new); emulator integration tests — 80 tests,
+  `OK`, in two consecutive full runs (69 existing, 1 updated; 11 new); frontend unit tests — 173/173 (12 new); Firestore
+  rules — 44/44 (production, unchanged) and 104/104 (experimental); mutation check — backend 22 of 22, frontend 9 of 9,
+  rules 2 of 2 detected; lint of the changed frontend files — passed except the pre-existing unused `React` import in
+  `Profile.jsx` (E6); production build — passed. Emulator suites on alternative ports (scratch configuration). A
+  test-process incident during the mutation check is recorded in section 8 M. Browser verification — not yet performed when these results were recorded.
+  **Test-safety follow-up (27 Nov 2026):** persistent isolation guards (`backend/tests/isolation.py`); backend tests —
+  283 tests, `OK` (11 new isolation tests; guard triggers only in those); emulator integration tests — one run with one
+  failure (ML10, a spurious `LOCK_LOST` under concurrency; not a guard trigger), the next run 80 `OK`.
+  **ML10 fix (27 Nov 2026):** backend tests — 295 tests, `OK` (12 new renewal tests; 9 of them fail against the
+  previous renewal); frontend unit tests — 173/173 (two new reason labels); emulator integration tests — 81 tests,
+  `OK` in 3 consecutive full runs, and the four concurrency tests repeated 10 times, all `OK`: 0 `LOCK_LOST`, 261
+  contended renewals retried successfully, 0 isolation-guard triggers (scratch ports, guards active).
+  **Owner walkthrough and final audit (27 Nov 2026):** browser walkthrough completed with partial coverage (C1, C2
+  partially verified; C3, C5–C7 verified, C6 with evidence limits; C4 and C8–C11 not verified manually); final read-only
+  audit PASS WITH LIMITATIONS, no Critical or High findings; A1 and A2 corrected afterwards: backend tests — 303 tests,
+  `OK`; emulator integration tests — 81 tests, `OK` (twice), plus `test_auth_emulator.py` executed directly — 14 `OK`
+  (section 8 M).
 
 ## 3. Repository status at baseline
 
@@ -218,8 +238,8 @@ Production smoke tests were run from the local React dev server connected to pro
 | S1 | Browser-exposed Gemini API key. **Active browser use removed** in the M1.5C security patch: `UploadResults.jsx` no longer imports the Gemini SDK, references the key or calls the Gemini API, and the production build contains no Gemini SDK, endpoint or key variable. An earlier check found the Vite dev server still serving the Gemini variable from `frontend/.env`; in a later name-only inspection of the local dev server (22 Nov 2026), neither `VITE_GEMINI_API_KEY` nor `VITE_OLLAMA_API_KEY` was among the variables served to the browser. **Historical exposure remains:** the Gemini key, and any provider key ever placed in a `VITE_*` variable while the dev server ran, must be treated as compromised and rotated or revoked (owner action). | `frontend/src/pages/user/UploadResults.jsx`, `frontend/.env` (local) | High until rotated or revoked | Owner action; M1.5C (deferred) |
 | S2 | Self-asserted academic results. Before the security patch, `UploadResults.jsx` wrote `status: "verified"` / `recordType: "OFFICIAL_SPM_CERT"` / `verificationMethod: "AI_OCR_GEMINI"` even when no OCR ran, and grades were editable. It now writes the manual-entry values. Existing documents may still carry the old values; they never meant independent verification, and no code reads these fields. The manual-entry combination labels an SPM leaver's actual results as `PREDICTED_GRADES` because the rules offer no other label. | `UploadResults.jsx`, `isValidResults` in `firestore.rules` | Low–Medium | Results schema v2 design (separate approval) |
 | S3 | Self-asserted assessment. `ai_assessments` is written by the browser, and `/api/assessment/recommend` derives the score from stored `answers[].isCorrect`. | `DummyAI.jsx`, `recommend_endpoint` in `backend/routes/assessment.py` | Medium | Future |
-| S4 | Incomplete account deletion. Profile deletes `users/{uid}`, then the Auth user; `results/{uid}` and `ai_assessments/{uid}` remain (owners cannot delete them under the rules). The Admin deletion (M3B-3, local emulators only, section 8 L) removes all three documents and the Auth account; the student self-delete is unchanged. | `Profile.jsx`, `firestore.rules` | Medium | Student self-delete through a protected backend endpoint (section 8 J fixes) before production |
-| S5 | Accepted limitation W1: a student can delete and re-create their own `users` document, changing the student type and resetting `createdAt`. It can never grant Admin. | `firestore.rules` comment, emulator suite 12 | Low | M3B |
+| S4 | Incomplete account deletion. Profile deletes `users/{uid}`, then the Auth user; `results/{uid}` and `ai_assessments/{uid}` remain (owners cannot delete them under the rules). The Admin deletion (M3B-3, local emulators only, section 8 L) removes all three documents and the Auth account. **M3C (section 8 M):** the browser deletion is removed from `Profile.jsx`; in emulator mode the student self-delete uses the protected backend endpoint; the production app offers no self-delete. | `Profile.jsx`, `firestore.rules` | Medium | Closed in emulator mode (M3C); production endpoint and rules change pending approval |
+| S5 | Accepted limitation W1: a student can delete and re-create their own `users` document, changing the student type and resetting `createdAt`. It can never grant Admin. **M3C:** the experimental rules no longer allow the owner's delete (section 8 M); the production rules still do. | `firestore.rules` comment, emulator suite 12 | Low | Production rules change (change procedure) |
 | S6 | **Resolved in M2:** the Admin area previously checked the claim in the browser only. `AdminLayout` now calls `GET /api/admin/verify` and shows no admin content unless the server confirms access. Frontend checks still only control what is displayed; Admin data must come from `require_admin` endpoints (M3+). | `ProtectedAdminRoute.jsx`, `frontend/src/components/admin/AdminLayout.jsx` | Resolved | — |
 | S7 | FastAPI interactive docs (`/docs`, `/openapi.json`) are public by default. | `backend/main.py` | Low | Before backend deployment |
 | S8 | No Firebase App Check. | `frontend/src/firebase.js` | Low–Medium | Later |
@@ -325,7 +345,9 @@ Programme data exists in three places, read by different parts of the system:
 | — | **M1.5C — Secure Gemini Integration (DEFERRED)** | Security patch done: browser-side Gemini OCR disabled. Remaining: React → authenticated FastAPI → Gemini API. | Not completed. Activation requires a provider-terms and privacy review (users under 18, personal data on SPM slips), rotation or revocation of the old key, and owner approval. Required before OCR returns and before any public deployment. |
 | 1 | M2 — Admin Dashboard and Sidebar | **Implemented.** Admin layout, sidebar, mobile navigation and logout; Admin access confirmed with `/api/admin/verify`. | Module cards are labelled "Coming soon"; no statistics. |
 | 2 | M3A — Manage Users (read-only) | **Implemented.** `require_admin` list and details endpoints using the Admin SDK; Manage Users and User Details pages. | Listing limits and missing-profile detection: see section 5. |
-| — | **M3B — Account actions** | Disable, enable and delete accounts. | **M3B-2 Disable & Enable** (section 8 K) and **M3B-3 Delete** (section 8 L, not yet committed; browser walkthrough partially verified; audit PASS WITH LIMITATIONS): implemented for the local emulators only; not usable in production until the production blockers in sections 8 J, K and L are met. The student self-delete fix (S4, FL6) and S5/W1 remain. |
+| — | **M3B — Account actions** | Disable, enable and delete accounts. | **M3B-2 Disable & Enable** (section 8 K) and **M3B-3 Delete** (section 8 L, `0c3d3b0`; browser walkthrough partially verified; audit PASS WITH LIMITATIONS): implemented for the local emulators only; not usable in production until the production blockers in sections 8 J, K, L and M are met. |
+| — | **M3C — Account Lifecycle Security Hardening** | Disable/Enable lock hardening, strict student-data enforcement, backend student self-delete, experimental rules without the owner's delete, DL14 texts. | Implemented for the local emulators only (section 8 M); IMPLEMENTED BUT UNCOMMITTED; owner browser walkthrough with partial coverage; final audit PASS WITH LIMITATIONS. |
+| — | **M3D — Real Firebase staging** (proposed) | The account lifecycle against a separate staging project with test accounts only, never `route2unikl`. | Not started. Needs owner approval for each step (project creation, staging rules, staging admin claim, `auth_time` canary). |
 | 3 | M4 — Manage Programmes | Admin CRUD for programmes. | Decide the programme single source of truth and sync strategy first; guard the seeders. |
 | 4 | M5 — Manage Programme Criteria | Eligibility fields (`min_spm_credits`, `min_math_grade`, `min_bm_grade`, `min_bi_grade`, `requires_science`). | Consumed by `recommendation_service.py`. |
 | 5 | M6 — Manage Preparatory Resources | The 118 `preparatory_guideline` entries inside programme records. | Same data-consistency strategy as M4. |
@@ -336,6 +358,10 @@ additional browser access to Firestore.
 
 ## 7. Recommended next milestone
 
+**After M3C verification: M3D — Real Firebase staging** (proposed; separate approval). M3C (section 8 M) is
+implemented for the local emulators and awaits the owner's browser verification and commit authorization. The text
+below is the earlier recommendation, kept for history.
+
 **M3B — Account actions (disable, enable, delete).** M3A (read-only Manage Users) is implemented.
 M3B starts only after a separate security and deletion-design approval: protected `require_admin`
 endpoints, no actions on the caller's own account or on admin accounts, and an account-deletion process
@@ -345,7 +371,7 @@ the minimum reconciliation are listed in [section 8 J](#j-m3b-1b-p1-b2bc--local-
 M3B-2 (Disable and Enable) is implemented for the local emulators ([section 8 K](#k-m3b-2--admin-disable--enable-accounts-emulator-only)),
 and so is M3B-3 (Admin Delete Student Account, [section 8 L](#l-m3b-3--admin-delete-student-account-emulator-only)). M3B-3 was
 partially verified by the owner in the browser (D4, D5 and D13 incomplete) and audited (PASS WITH LIMITATIONS). It is
-acceptable only as a local-emulator development milestone and is pending commit. The remaining M3B work is the student self-delete fix (S4, FL6) and the
+acceptable only as a local-emulator development milestone; it was committed as `0c3d3b0`. The remaining M3B work (addressed in emulator mode by M3C, section M) is the student self-delete fix (S4, FL6) and the
 production blockers listed in sections 8 J, K and L.
 M1.5C remains deferred: OCR is not operational and manual results entry remains supported. Before OCR
 returns or any public deployment: rotate or revoke the previously exposed key(s), remove the unused
@@ -361,7 +387,8 @@ account-access guard (section F), of the M3B-1B-P1-A local emulator foundation (
 backend-only M3B-1B-P1-B1 account-access service (section H), of the emulator-only M3B-1B-P1-B2A
 trusted registration (section I), of the emulator-only M3B-1B-P1-B2B/C local account integration
 (section J), of the emulator-only M3B-2 Disable & Enable account actions (section K) and of the
-emulator-only M3B-3 Delete Student Account action (section L), based on the repository code and the
+emulator-only M3B-3 Delete Student Account action (section L) and of the emulator-only M3C account lifecycle
+hardening (section M), based on the repository code and the
 recorded test results. It is **not** the final Development and Testing Report.
 Last recorded: 26 November 2026 (MYT).
 
@@ -430,19 +457,21 @@ Shared helper: `frontend/src/utils/signOutFlow.js` (`endSession`, `signOutThenRe
 
 | Evidence | Scope | Latest recorded result |
 |---|---|---|
-| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23), `test_registration.py` (34), `test_account_actions.py` (42), `test_account_deletion.py` (38) | 231 tests, `OK` |
-| Backend emulator integration tests (M3B-1B-P1-A, P1-B1, P1-B2A, P1-B2B/C, M3B-2, M3B-3) | `backend/integration_tests/`: `test_auth_emulator.py` (14), `test_account_access_service.py` (9), `test_registration_emulator.py` (13), `test_local_account_flow.py` (9), `test_account_actions_emulator.py` (10) and `test_account_deletion_emulator.py` (14) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 69 tests, `OK` |
-| Frontend unit tests | `gradeEntry` (18), `adminNavigation` (11), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18), `firebaseEmulator` (8), `registrationApi` (22), `accountAccess` (6), `adminAccountActions` (36), `apiErrors` (5) | 161/161 passed |
+| Backend unit tests | `test_auth.py` (26), `test_admin_users.py` (37), `test_firebase_config.py` (31), `test_account_access_service.py` (23), `test_registration.py` (34), `test_account_actions.py` (42), `test_account_deletion.py` (38), `test_account_lifecycle_hardening.py` (53), `test_isolation.py` (19) | 303 tests, `OK` |
+| Backend emulator integration tests (M3B-1B-P1-A, P1-B1, P1-B2A, P1-B2B/C, M3B-2, M3B-3) | `backend/integration_tests/`: `test_auth_emulator.py` (14), `test_account_access_service.py` (9), `test_registration_emulator.py` (13), `test_local_account_flow.py` (9), `test_account_actions_emulator.py` (10), `test_account_deletion_emulator.py` (14) and `test_account_lifecycle_emulator.py` (12) against the Authentication and Firestore emulators (`demo-route2unikl`), separate command (section G) | 81 tests, `OK` |
+| Frontend unit tests | `gradeEntry` (18), `adminNavigation` (12), `adminVerification` (13), `adminUsers` (24), `signOutFlow` (18), `firebaseEmulator` (8), `registrationApi` (22), `accountAccess` (6), `adminAccountActions` (38), `apiErrors` (5), `selfDeletion` (9) | 173/173 passed |
 | Firestore emulator tests (production rules) | `firestore-tests/rules.test.mjs` against `firestore.rules`, run by `npm test` (12 suites, defined in `shared-rules-suite.mjs`) | 44/44 passed |
-| Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) | 100/100 passed |
+| Firestore emulator tests (experimental, M3B-1B-P0) | `firestore-tests/account-access.experimental.suite.mjs` against the test-only `account-access.experimental.rules`: the same 44 tests plus 56 guard tests (section F) and 4 M3C tests (section M; two of the 44 assert the denial of the owner's profile delete) | 104/104 passed |
 | Mutation testing (experimental, M3B-1B-P0) | The experimental suite re-run against deliberately weakened copies of the experimental rules (section F) | 19 of 20 weakenings detected; the undetected one removes a redundant check |
 | Mutation testing (configuration, M3B-1B-P1-A) | `test_firebase_config.py` re-run against deliberately weakened copies of `backend/core/firebase.py` and `backend/core/auth.py` (section G) | 17 of 17 weakenings detected |
 | Mutation testing (account deletion, M3B-3) | The account-action and deletion unit tests against weakened in-memory copies of the services, routes and student-data check; the helper tests against weakened scratch copies of the frontend helpers (section L) | Backend 32 of 32, frontend 13 of 13 detected |
+| Mutation testing (M3C) | The backend unit suite against 22 weakened in-memory copies (locks, stale checks, self-service, student-data decision, recent sign-in, `auth_time`); frontend helper tests against 9 weakened scratch copies; the experimental suite against 2 weakened copies of the experimental rules (section M) | Backend 22 of 22, frontend 9 of 9, rules 2 of 2 detected |
 | Frontend build and lint | Production build; lint of the changed files with zero warnings allowed | Passed (pre-existing project-wide lint issues: see E6) |
 | Manual (owner-reported) | M3A Manage Users browser verification | 10/10 |
 | Manual (owner-reported) | Admin sign-out hardening browser regression checks | 5/5 |
 | Manual (owner-reported) | M3B-1B-P1-B2B/C local walkthrough in emulator mode, steps M1–M11 (section J) | 11/11 passed, with limitations (M7, M10, M11; section J); one defect found in M5 and fixed |
 | Manual (owner-reported) | M3B-2 local walkthrough in emulator mode: 13 conversational checkpoints, mapped to the 13 planned tests (section K) | 13/13 conversational checkpoints passed. Planned tests: 3 verified, 7 partially verified, 1 not verified, 2 automated tests only. Firestore rules rejection, audit-record contents and old refresh-token behaviour after Enable not manually verified (section K) |
+| Manual (owner-reported) | M3C in emulator mode (plan C1–C11, section M) | **Partial coverage** (27 Nov 2026): C3, C5, C6 (with evidence limits) and C7 verified; C1 and C2 partially verified; C4 not verified; C8–C11 not verified manually (automated coverage only) |
 | Manual (owner-reported) | M3B-3 Delete Student Account in emulator mode (plan D1–D14, section L) | **Partially verified** (26 Nov 2026): 5 verified, 8 partially verified, 1 not verified (D13); D4 and D5 incomplete; the original plan was not fully completed |
 | Manual (owner-reported) | Earlier browser smoke tests recorded in section 1 (for example, M1 Admin login, dashboard access and refresh) | See section 1 |
 
@@ -461,7 +490,7 @@ inspection (A3, B3–B6).
 | E4 | The component wiring (`AdminLayout`, `ProtectedAdminRoute`, `AdminStatusPanel`, the Manage Users pages) has no rendered-component unit tests; that would need a test-renderer dependency. | Test-coverage gap | Open. |
 | E5 | Student-facing sign-out handling is outside the hardening patch: `ApiAuthErrorPanel.jsx` ignores a failed sign-out and then redirects; `Login.jsx` ignores a failed sign-out after a failed claim check; the student `Header.jsx` Logout has no error handling. | Security limitation (low) and future development task | Open; needs a separate approval. |
 | E6 | Project-wide lint: 21 errors and 2 warnings in 15 files not touched by M3A or the sign-out hardening (mostly unused variables; `react-hooks` findings in `DummyAI.jsx` and `Recommendation.jsx`). | Future development task (code quality) | Open. |
-| E7 | M3B account actions: Disable and Enable (M3B-2, section K) and Delete (M3B-3, section L) are implemented for the local emulators only; the student self-delete is unchanged, so S4 (self-delete) and S5 remain open. | Future development task | Production use pending the blockers in sections J, K and L; M3B-3 browser verification partial (D4, D5 and D13 incomplete; section L). |
+| E7 | M3B account actions: Disable and Enable (M3B-2, section K) and Delete (M3B-3, section L) are implemented for the local emulators only; M3C (section M) moves the student self-delete to the backend (emulator only) and removes the owner's delete from the experimental rules. | Future development task | Production use pending the blockers in sections J, K, L and M; M3B-3 browser verification partial (D4, D5 and D13 incomplete; section L). |
 | E8 | A retry from the Admin layout's "Couldn't sign you out" panel is not tied to a verification run; in a rare overlap, a late failure could block a screen that had just been verified again. | Usability problem | Fails closed. Open. |
 | E9 | A failed manual Admin logout uses an alert and re-verification instead of the shared failure panel. | Usability problem and future development task | Open. |
 | E10 | Manage Users does not detect Firestore profiles without an Auth account, and scans at most 2,000 accounts per request (reported, not hidden). | Future development task | Open (section 5). |
@@ -1066,7 +1095,7 @@ below.
 
 | # | Limitation | Type | Status |
 |---|---|---|---|
-| JL1 | The backend does not consult the access record: an enabled account with a missing or blocked record still gets 200 from `/api/auth/me` (tests 6 and 7). Backend routes follow the Auth state (`check_revoked=True`), which the coordinated order changes right after the record. | Boundary (by design, FL8) | Partly addressed in M3B-3 (section L, DP9): in emulator mode, the student-data endpoints refuse `deleting` and `deleted` records; other states, `/api/auth/me` and production mode unchanged (DL3) |
+| JL1 | The backend does not consult the access record: an enabled account with a missing or blocked record still gets 200 from `/api/auth/me` (tests 6 and 7). Backend routes follow the Auth state (`check_revoked=True`), which the coordinated order changes right after the record. | Boundary (by design, FL8) | Partly addressed in M3B-3 (section L, DP9): in emulator mode, the student-data endpoints refuse `deleting` and `deleted` records; other states, `/api/auth/me` and production mode unchanged (DL3). **M3C (section M): closed for the student-data endpoints in emulator mode** (the guard's full decision); `/api/auth/me` and production mode unchanged |
 | JL2 | With the guard, the production browser registration can no longer create `users/{uid}` (test 6), so the guard cannot be deployed before registration goes through the backend in production. | Dependency | Open |
 | JL3 | The login access check runs in emulator mode only, and it is a usability check: Firestore rules enforce access. Other student pages do not show the access message when a session is blocked later; they use their own error handling (not reviewed). | Usability problem | Open |
 | JL4 | Browser behaviour rests on the owner's walkthrough (11/11 passed) and code inspection: no rendered-component tests exist (E4). Not observed in the browser: the Firestore refusal of an earlier token (M7) and account non-creation with the backend stopped (M10). The production registration and login flows were not exercised (M11, by design). | Test-coverage gap | Partly closed (owner walkthrough, 26 Nov 2026); the rest open |
@@ -1382,8 +1411,8 @@ M3 (a production check that revoked refresh tokens are refused after Enable).
 
 | # | Limitation | Type | Status |
 |---|---|---|---|
-| KL1 | The backend does not consult the access record (JL1): after a Disable that stopped before `disable_auth`, or an Enable that stopped before `activate_record`, the backend still accepts the student's tokens while Auth is enabled; Firestore stays closed. | Boundary (by design) | Open; decide with JL1 |
-| KL2 | Leases use the backend's clock and assume one backend instance; an operation running longer than 120 seconds could be taken over. Operations take seconds. | Design constraint | Accepted for local use; review before production. Audit: a single Admin SDK call can exceed the lease, and Auth writes are not fenced (M1, open). |
+| KL1 | The backend does not consult the access record (JL1): after a Disable that stopped before `disable_auth`, or an Enable that stopped before `activate_record`, the backend still accepts the student's tokens while Auth is enabled; Firestore stays closed. | Boundary (by design) | Closed for the student-data endpoints in emulator mode by M3C (section M); `/api/auth/me` still follows Auth |
+| KL2 | Leases use the backend's clock and assume one backend instance; an operation running longer than 120 seconds could be taken over. Operations take seconds. | Design constraint | Accepted for local use; review before production. Audit: a single Admin SDK call can exceed the lease, and Auth writes are not fenced (M1). M3C (section M): 300 s lease renewed with an ownership check before every step, 35-minute takeover grace, stale-operation record check before Auth writes; mitigated, not fenced (ML1). |
 | KL3 | Enable takes about 4–5 seconds in one request (1.1 s and 3 s waits). | Usability | Accepted |
 | KL4 | The audit records have no admin page; they are read with the helper command. Refused requests are logged, not audited. | Future development task | Open |
 | KL5 | The list page shows Firebase Authentication status only; incomplete operations are shown on User Details. | Usability | Accepted |
@@ -1391,11 +1420,11 @@ M3 (a production check that revoked refresh tokens are refused after Enable).
 | KL7 | The automated detection of the revocation margin is probabilistic (same-second timing); the unit tests pin the waits. | Test-coverage gap | Accepted |
 | KL8 | Emulator results are not production evidence (contention, preconditions, revocation and clock behaviour). | Test-coverage gap | Open (see M2 and M3) |
 | KL9 | The emulator suites ran on alternative ports (scratch configuration outside the repository) because the owner's emulators were running; the repository command uses the ports in `firebase.json`. | Test process | Recorded |
-| KL10 | Post-implementation audit findings M1–M3 (Medium) and L1–L7 (Low) and the untested cases listed under "Post-implementation security audit". | Security limitations and test-coverage gaps | Open (L5 accepted; L6, L7 informational). Updated by M3B-3 (section L): L1 resolved; M1 addressed for deletion locks only; JL1 closed for accounts in deletion (emulator mode only) |
+| KL10 | Post-implementation audit findings M1–M3 (Medium) and L1–L7 (Low) and the untested cases listed under "Post-implementation security audit". | Security limitations and test-coverage gaps | Open (L5 accepted; L6, L7 informational). Updated by M3B-3 (section L): L1 resolved; M1 addressed for deletion locks only; JL1 closed for accounts in deletion (emulator mode only). Updated by M3C (section M): M1 mitigated for every operation; JL1/KL1 closed for the student-data endpoints (emulator mode); M3 mitigated for student data only |
 
 ### L. M3B-3 — Admin Delete Student Account (Emulator Only)
 
-> **Status: implemented and tested against the local Firebase emulators only; not committed, not deployed.
+> **Status: implemented and tested against the local Firebase emulators only; committed as `0c3d3b0`, not deployed.
 > Owner browser walkthrough (26 Nov 2026): the D1–D14 plan was only PARTIALLY verified (5 verified, 8 partially
 > verified, 1 not verified; D4, D5 and D13 incomplete; see "Coverage of the planned tests"). Post-implementation
 > security audit (26 Nov 2026): PASS WITH LIMITATIONS. Acceptable ONLY as a local-emulator development milestone;
@@ -1771,9 +1800,9 @@ and M3, and L2–L7 (section K).
 |---|---|---|---|
 | DL1 | **Administrator-claim race.** Firebase offers no conditional Auth deletion, so a claim set after the last check (step 7) and before or during the Auth deletion cannot be detected; the window is one Admin SDK call. Claims can be set only outside the application (console, scripts). A claim detected mid-deletion stops it, but leaves the account disabled with the record `deleting`. The promoted administrator then cannot sign in, and the application offers no repair (manual). | Unavoidable race (documented) | Open; operational control: never grant claims to accounts being deleted |
 | DL2 | The takeover grace is a timing assumption based on the backend clock and the SDK's documented timeouts, not a fence (see "Concurrency and in-flight calls"). Disable and Enable keep the 120-second lease (M1 open for them). | Design constraint | Open for production |
-| DL3 | JL1 is closed only for `deleting`/`deleted` records and only in emulator mode. Disabled, missing and malformed records rely on Firebase Authentication on the backend as before (KL1). The record is checked once per request; `/api/auth/me` is not covered (uid and admin flag only) (audit DA6). | Boundary | Open for production |
+| DL3 | JL1 is closed only for `deleting`/`deleted` records and only in emulator mode. Disabled, missing and malformed records rely on Firebase Authentication on the backend as before (KL1). The record is checked once per request; `/api/auth/me` is not covered (uid and admin flag only) (audit DA6). | Boundary | M3C: closed for the student-data endpoints in emulator mode (section M); open for production and `/api/auth/me` |
 | DL4 | The production `firestore.rules` have no account-access guard: with the production rules, an earlier session could re-create `users/{uid}` after a deletion. Not reachable today (no deletion route in production); the guard must be deployed before deletion is. | Production requirement | Open |
-| DL5 | **Student self-delete (`Profile.jsx`) is unchanged and still unsafe** (S4, FL6): it deletes `users/{uid}` from the browser and then the Auth account, leaving `results`, `ai_assessments` and the access record. | Future development task | Open; required before production |
+| DL5 | **Student self-delete (`Profile.jsx`) is unchanged and still unsafe** (S4, FL6): it deletes `users/{uid}` from the browser and then the Auth account, leaving `results`, `ai_assessments` and the access record. | Future development task | M3C: replaced by the backend workflow in emulator mode; the production app offers no self-delete (section M) |
 | DL6 | Tombstones and audit records are kept indefinitely; the uids in them are potentially identifying. Server logs contain uids. | Privacy | Retention policy needed before production |
 | DL7 | A student document re-created after the tombstone is written cannot be removed by resuming: the deletion stays incomplete (`DATA_REMAINS`) until it is cleaned up manually. Not reachable through the application (the guard denies browser writes; no backend route writes these documents). | Edge case | Accepted (never reported as success) |
 | DL8 | The recovery list is capped at 100 entries and reads every operation lock; it is not paginated. | Scale | Accepted for local use |
@@ -1782,7 +1811,7 @@ and M3, and L2–L7 (section K).
 | DL11 | No rendered-component tests for the dialog, the panel or the incomplete-deletions list (E4, KL6). The nested-data stop is tested with fakes only in the repository suites (the audit's scratch probe against a real emulator passed 2/2, DA5). | Test-coverage gap | Open |
 | DL12 | Emulator results are not production evidence (KL8). The emulator suites ran on alternative ports (KL9). | Test process | Recorded |
 | DL13 | M2 and M3 (section K) concern Enable; they do not weaken a deletion (a deleted account's tokens are refused, its refresh token fails, test 1), but they remain open. | Carried over | Open |
-| DL14 | A stale running deletion lock is shown as "Deletion in progress … Refresh in a moment", with no action, for up to 35 minutes. This happens after a crash, or when the lock could not be released or marked incomplete, including after a completed deletion reported with `lock_released: false`. The success note says resuming clears it, but Resume is offered only after the grace period (audit DA4). | Usability (texts mislead; nothing unsafe) | Open; text correction pending (code change) |
+| DL14 | A stale running deletion lock is shown as "Deletion in progress … Refresh in a moment", with no action, for up to 35 minutes. This happens after a crash, or when the lock could not be released or marked incomplete, including after a completed deletion reported with `lock_released: false`. The success note says resuming clears it, but Resume is offered only after the grace period (audit DA4). | Usability (texts mislead; nothing unsafe) | Texts corrected in M3C (section M); the 35-minute wait is by design |
 | DL15 | In the student flow, a successful results save opens the AI-assessment page, which calls the live AI providers at once (`ManualGradeEntry.jsx:103`, `UploadResults.jsx:118`). Browser tests that save results in the app therefore trigger AI generation (DA1; walkthrough W2). | Test process (existing student flow, unchanged) | Plan corrected: emulator deletion tests create `results/{uid}` with the REST helper |
 
 **Production blockers** (none implemented; each needs separate approval):
@@ -1802,6 +1831,279 @@ and M3, and L2–L7 (section K).
 - Monitoring of incomplete deletions.
 - Rate limiting (L7).
 - A production check of the Auth deletion and of the batch-precondition behaviour under contention (DL12).
+
+### M. M3C — Account Lifecycle Security Hardening (Emulator Only)
+
+> **Status: IMPLEMENTED BUT UNCOMMITTED; tested against the local Firebase emulators only; not deployed.
+> Owner browser walkthrough (27 Nov 2026): completed with partial coverage (mapping below). Final security audit
+> (27 Nov 2026): PASS WITH LIMITATIONS, no Critical or High findings; A1 and A2 corrected. Production `firestore.rules`, `firebase.json` and
+> production data unchanged. Acceptable only as a local-emulator development milestone; NOT production-ready.**
+
+Scope agreed with the owner on 26 Nov 2026: strict, fail-closed enforcement in the local emulator (decision D1 does
+not block M3C: a missing or malformed record denies; `disabled`, `deleting` and `deleted` deny; an `active` record
+permits only a session that satisfies `sessionsValidAfter`; Firestore errors fail closed). The blocked-only
+alternative was **not** introduced. Production deployment and migration decisions remain separate.
+
+**1. Disable/Enable concurrency hardening (audit finding M1)** — `backend/services/account_action_service.py`
+
+| Change | Detail |
+|---|---|
+| One lease for every operation | `LEASE_SECONDS = 300` (was 120 s for Disable/Enable, 300 s for Delete). |
+| Ownership check before every step | The lease is renewed with a precondition on the lock's update time before every step and before the verification, for Disable and Enable as for Delete. A lost lock stops the operation (`LOCK_LOST`) before its next change; the lock is left to its new owner. |
+| Takeover grace for every operation | A **running** lock of any operation is taken over only after its lease **and** `TAKEOVER_GRACE_SECONDS = 1800` (35 minutes after its last renewal), longer than two Admin SDK calls with retries. Before M3C, a running Disable/Enable lock could be taken over as soon as its 120 s lease expired. |
+| Stale-operation check before every Auth write | `disable_auth` (Disable and Enable) and `enable_auth` re-read the access record immediately before writing to Firebase Authentication and stop with `RECORD_CHANGED` unless it is still exactly the version this operation last wrote or confirmed (for `enable_auth`: still `disabled`, with the threshold set). A stale Enable whose record was changed by a newer operation never re-enables sign-in afterwards. |
+| `resumable_after` | `GET /api/admin/users/{uid}/access` (and the incomplete-deletions list) report, for a running lock, when it can be taken over if its process stopped (lease + grace). |
+
+**Not a fence (stated honestly).** Firebase Authentication writes cannot be made conditional. An Auth call already in
+flight, and delayed beyond lease + grace (for example, a suspended process), can still land after a newer operation.
+`test_residual_race_a_late_auth_write_cannot_reopen_data_access` reproduces this with fakes: the late write leaves
+the account `inconsistent` (Auth enabled, record `disabled`); the stale Enable stops (`LOCK_LOST`) and never
+activates the record, so the guard and the backend's student-data check stay closed, and a new Disable makes the
+account consistent. M1 is therefore **mitigated, not eliminated**. Consequence for usability: after a crash, a
+Disable/Enable now also shows "Change in progress" for up to about 35 minutes (previously 2 minutes) before it can be
+resumed.
+
+**2. Strict backend student-data enforcement (JL1, KL1, DL3)** — `backend/core/student_access.py`, `backend/core/auth.py`
+
+In Firebase **emulator mode**, `require_student_data_access` (used by `/api/assessment/generate-questions` and
+`/api/assessment/recommend`) now applies the experimental guard's exact decision (`hasActiveAccount`):
+
+| Record / session | Response |
+|---|---|
+| Missing or malformed record | 403 `ACCOUNT_ACCESS_DENIED` |
+| `disabled` | 403 `ACCOUNT_ACCESS_DENIED` |
+| `deleting`, `deleted` | 403 `ACCOUNT_DELETED` (as in M3B-3) |
+| `active` with `sessionsValidAfter`, and `(auth_time − 1 s) < sessionsValidAfter`, or `auth_time` missing or not an integer | 401 `SESSION_TOO_OLD` (sign in again) |
+| `active` without a threshold, or a session after it | allowed |
+| Record unreadable (any error) | 503 `ACCOUNT_STATUS_UNAVAILABLE` (fail closed) |
+
+- `AuthenticatedUser` now carries the token's `auth_time` (integer only; never returned to clients — `/api/auth/me`
+  still returns only `uid` and `is_admin`). The comparison uses Firebase-issued `auth_time` and the Firestore server
+  time of `sessionsValidAfter`; the backend host clock is not involved. The boundary table is the same 14 cases as
+  the rules suite (section 14 of the experimental suite).
+- Administrators are not exempt (as in the guard). **Production mode is unchanged**: no record is read and the
+  authenticated user is returned as before (tested).
+- Effect on audit finding **M3**: in the emulator, the refresh token from before Disable is still exchanged after
+  Enable (asserted in `test_02` of the new integration module). The resulting ID token keeps the old `auth_time`,
+  so the student-data endpoints now refuse it (401 `SESSION_TOO_OLD`) and the guard refuses it (403).
+  **`/api/auth/me` still accepts it** (identity only; no student data). M3 is mitigated for student data only and
+  remains unverified on real Firebase.
+
+**3. Student self-service deletion (S4, FL6, DL5)** — `backend/routes/account_self_service.py`,
+`account_action_service.delete_own_account`, `frontend/src/pages/user/Profile.jsx`, `frontend/src/utils/selfDeletion.js`
+
+- `POST /api/account/delete`, body exactly `{"confirm_uid": "<own uid>"}`. Mounted **only in emulator mode** (404
+  otherwise, before any token check). Checks in order: emulator gate (404/503) → `get_current_user` → administrators
+  refused (403 `ADMIN_TARGET_FORBIDDEN`) → body read and validated **after** authentication (so the DA7 pattern is not
+  repeated: a malformed body without a token answers 401) → `confirm_uid` must equal the token uid (422; checked
+  before Firestore is read) → **recent sign-in**: `auth_time` within `RECENT_SIGN_IN_SECONDS = 300` of the server's
+  time and at most 5 s in the future (403 `RECENT_SIGN_IN_REQUIRED`) → the access record, exactly as for the
+  student-data endpoints, except that the student's own unfinished deletion (`deleting`) may be resumed → the M3B-3
+  deletion steps.
+- `delete_own_account` runs the same steps, locks, renewals, tombstone and audit as the administrator deletion, with
+  the student as the actor. Only an `active` account or the student's own unfinished deletion is accepted (disabled,
+  inconsistent, incomplete and unsupported accounts are refused); administrators are refused even if the claim is not
+  in the token. Audit records now carry `requestedBy: "student" | "administrator"` for deletions.
+- **Recovery:** a partial failure is 503 `OPERATION_INCOMPLETE` with its operation identifier, step and reason. It is
+  listed under the administrators' "Incomplete deletions" and resumed there; the student can resume it themselves
+  only while they can still sign in (before `disable_auth`).
+- **Browser:** `Profile.jsx` no longer imports or calls `deleteDoc` / `deleteUser`. In emulator mode the student
+  enters their password; the page re-authenticates (`reauthenticateWithCredential`), refreshes the token, calls the
+  endpoint, and signs out and opens `/login` **only after** the server reports `outcome: "completed"`. A failed
+  sign-out shows "Your account has been deleted, but this browser could not finish signing out". **Production build
+  (no emulators): the page shows "Deleting your account from the app is not available yet. Please contact the
+  Route2UniKL administrator…" — the production self-delete is removed (a production-visible change; owner decision
+  to confirm).**
+
+**4. Experimental Firestore rules** — `firestore-tests/account-access.experimental.rules` (test-only; never
+deployed): the owner's `allow delete` on `users/{uid}` is removed. No browser can delete student documents; deletion
+is the backend workflow only. This closes S5/W1 and the browser part of S4 **under the guard**. Production
+`firestore.rules` is unchanged and still allows it (a production rules change needs the change procedure in
+[FIRESTORE_BASELINE.md](FIRESTORE_BASELINE.md)). `shared-rules-suite.mjs` takes an option so the production suite runs
+its 44 tests unchanged and the experimental suite asserts the denial in the same two tests (section 8 and 12).
+
+**5. Smaller fixes:** DL14/DA4 texts corrected in `adminAccountActions.js` (a running lock now says it may still be
+running, and that it can be resumed after the server's `resumable_after` time, or about 35 minutes after its last
+activity; the "lock not cleared" notes give the real waiting time instead of "two minutes"); the Manage Users
+navigation description no longer says "(read-only)"; the stale M3B-3 "not committed" statements in this document are
+corrected (`0c3d3b0`).
+
+**Status of findings after M3C**
+
+| Finding | Status after M3C (emulator mode) |
+|---|---|
+| M1 (lock lease vs Auth calls) | Mitigated: renewal + ownership check before every step, 35-min takeover grace and the stale-operation record check for every operation. Not a fence; residual late-Auth-write race documented and tested (fail closed). |
+| M2 (revocation time from the host clock) | Unchanged. The new student-data check does not use the host clock; the recent-sign-in check does (5-minute window, 5 s future skew). |
+| M3 (old refresh token after Enable) | Mitigated for student data (backend 401, guard 403); `/api/auth/me` still accepts; unverified on real Firebase. |
+| JL1, KL1, DL3 | Closed in emulator mode for the student-data endpoints. `/api/auth/me` and production mode unchanged. |
+| S4, FL6, DL5 (unsafe self-delete) | Closed in emulator mode (backend workflow; browser deletion removed from the app). Production: no self-delete in the app; production rules still allow the owner's `users` delete. |
+| S5 / W1 | Closed under the experimental rules only. Open in production rules. |
+| DL14 / DA4 | Texts corrected; the waiting time itself is unchanged by design (35 minutes). |
+| DA7 | Not repeated in the new route; the admin delete route unchanged. |
+| L7 (rate limiting) | Open; also applies to the new route. |
+
+**Automated test evidence (26 Nov 2026; all emulator suites on alternative ports through a scratch configuration
+outside the repository, because the owner's emulators were running — KL9)**
+
+| Suite | Result |
+|---|---|
+| Backend unit | 272 tests, `OK` (231 existing, 7 updated for the intended changes; 41 new in `test_account_lifecycle_hardening.py`). After the test-safety follow-up (27 Nov 2026): 283 tests, `OK` (11 new in `test_isolation.py`). After the ML10 fix: 295 tests, `OK` (12 new renewal tests). After the audit A2 correction: 303 tests, `OK` |
+| Emulator integration | 80 tests, `OK`, in two consecutive full runs (69 existing, 1 updated; 11 new in `test_account_lifecycle_emulator.py`). A first run had 7 errors from a test-helper name clash in the new module (fixed; no product change). With the isolation guards (27 Nov 2026): one run FAILED (`test_05_concurrent_disable_requests_change_the_account_once`, ML10), the next run 80 `OK`; 0 guard triggers in both. After the ML10 fix: 81 tests (1 new), `OK` in 3 consecutive full runs; the four concurrency tests repeated 10 times, all `OK`; 0 `LOCK_LOST`, 261 contended renewals recovered |
+| Frontend unit | 173/173 (161 existing; 12 new: `selfDeletion` 9, `adminAccountActions` 2, `adminNavigation` 1) |
+| Firestore rules | 44/44 (production, unchanged rules) and 104/104 (experimental: 100 with two tests now asserting the denial, plus 4 in section 17) |
+| Mutation (backend) | 22 of 22 weakened in-memory copies detected (locks, stale checks, self-service, student-data decision, recent sign-in, `auth_time`), in a run with a credential and network guard |
+| Mutation (frontend / rules) | 9 of 9 (scratch copies of the helpers) / 2 of 2 (scratch copies of the experimental rules re-allowing the owner's delete) |
+| Lint, build | Changed frontend files pass, except the unused `React` import in `Profile.jsx`, which predates M3C (E6; identical in `0c3d3b0`). Production build passed; bundle scan: no Gemini or Ollama reference, only the public Firebase web configuration |
+
+**Test-process incident during the mutation check (recorded truthfully; corrected 27 Nov 2026).**
+- *What happened.* A scratch mutation harness (outside the repository, no isolation guard) re-executed the assessment
+  route under a mutation that deliberately removed the emulator-only condition of the student-data check. The existing
+  `test_auth.py` tests patch only `routes.assessment.initialize_firebase` and `core.auth._ensure_firebase_app`, not
+  `services.account_access_service.initialize_firebase`, so the weakened check reached the REAL
+  `core.firebase.initialize_firebase()` in production mode. This happened in two harness runs (26 Nov 2026).
+- *Confirmed:* a Firebase app was left in the test process afterwards (a later test failed with "a Firebase app already
+  exists in this process").
+- *Inferred from the code, not observed directly:* in production mode the only way that function creates an app is
+  `credentials.Certificate(backend/serviceAccountKey.json)` followed by `firebase_admin.initialize_app`; so the key was
+  loaded and the app belonged to the key's project (expected `route2unikl`; the app's project ID was not inspected). The
+  code path after it contains only `get()` reads of `account_access/{uid}` for the tests' fake uids (for example
+  `student-uid-123`) and no write.
+- *Unverified:* whether any read request reached production Firestore. There is no request log; the local DNS cache
+  held no Google API entries afterwards, which is inconclusive. It can be neither confirmed nor excluded from the
+  available evidence. The owner may check the Firestore usage metrics of `route2unikl` for 26 Nov 2026.
+- *Root cause:* test isolation relied only on per-test patches of the specific Firebase references each code path
+  normally uses; nothing at test-process level prevented a production credential, app or network request, so a code
+  change (or mutation) that took an unpatched path could reach production.
+- *Persistent safeguards (27 Nov 2026), `backend/tests/isolation.py`, installed by `backend/tests/__init__.py` (unit
+  mode) and `backend/integration_tests/__init__.py` (emulator mode) before any test module is imported:*
+  `firebase_admin.credentials.Certificate` and `ApplicationDefault` and `google.auth.default` raise (no key, no
+  Application Default Credentials); `firebase_admin.initialize_app` refuses the production project, an app without an
+  explicit credential and, in emulator mode, any non-`demo-` project; Python socket connections and name lookups are
+  loopback-only; the process refuses to start with `GOOGLE_APPLICATION_CREDENTIALS` set, and the integration package
+  refuses to load unless both emulator hosts are loopback and the project is a `demo-` project. Test patches restore
+  these guards, never the real functions. Any harness that loads the suite through the `tests` package inherits them.
+  Limit: gRPC (Firestore client) uses its own sockets, not covered by the socket guard; the credential and app guards
+  still prevent any production credential or app.
+- *Verification without contacting production:* `backend/tests/test_isolation.py` (11 tests when added; 19 after the audit A2 correction) first asserts that every
+  guard is in place, then shows that the key cannot be loaded (the key file is never opened), ADC is refused, no app for
+  `route2unikl` can be created, non-loopback lookups and connections (including `requests`) are refused before any
+  packet, loopback still works, and the incident path (production-mode initialisation reached from the student-data
+  check with no test patch, no mutation) now fails closed with 503 `ACCOUNT_STATUS_UNAVAILABLE` and leaves no app. In a
+  full unit run, guard triggers were attributed per test: only `test_isolation.py` triggered them (no existing test
+  reaches a guarded path). The mutation harness was not re-run after the incident beyond the guarded run above.
+
+**Manual browser verification plan (owner; emulator mode only; one step at a time).** Never save results in the app
+(DL15, DA1): create fictional `results`/`ai_assessments` documents with the emulator REST helpers in section L. Do not
+open `/ai-assessment`.
+
+| # | Check | Expected |
+|---|---|---|
+| C1 | Student signed in; administrator disables the account | Student pages lose data access; Disable completes; audit `completed` |
+| C2 | Administrator enables; the student's old tab is used without signing in again | Firestore reads refused; student must sign in again; a fresh sign-in works |
+| C3 | Manage Users navigation | Description no longer says "(read-only)" |
+| C4 | Profile → Delete Account → Cancel | Nothing changes; no request sent |
+| C5 | Profile → wrong password | "Password not accepted … Nothing was changed"; account intact |
+| C6 | Profile → correct password → Delete my account permanently | Signed out, login page; sign-in with the old password fails; administrator: account gone from Manage Users, access state "Deleted", audit `requestedBy: student` |
+| C7 | Same email registers again | A new account is created (new uid); the old tombstone unchanged |
+| C8 | Administrator account opens its own Profile (if reachable) and tries to delete | Refused: "Not available for administrators" |
+| C9 | A disabled-record student (Disable interrupted, as in K) tries to delete | Refused: "Your account can't be deleted here"; nothing changes |
+| C10 | Optional: incomplete self-deletion. It cannot be induced from the browser; it is covered by automated tests (unit, and integration `test_09`). Skip unless the owner wants a guided failure injection | If performed: listed under "Incomplete deletions"; the administrator resumes it; completed |
+| C11 | Production build or dev server without `VITE_USE_FIREBASE_EMULATORS=true` (inspect only; do not sign in to production) | Profile shows the "not available yet" message; no delete button |
+
+**Limitations**
+
+| # | Limitation | Type | Status |
+|---|---|---|---|
+| ML1 | Firebase Authentication writes are not fenced; a late Auth write after lease + grace can leave the account `inconsistent` (fail closed; Disable repairs it). | Residual race (M1) | Open; production evidence needed (M3D) |
+| ML2 | After a crash, a Disable/Enable now blocks the account for up to about 35 minutes (was 2) before it can be resumed. | Usability (by design) | Accepted for the emulator; review with monitoring |
+| ML3 | `/api/auth/me` and the Admin endpoints do not consult the access record; `/api/auth/me` accepts a refreshed old session after Enable (M3). | Boundary | Open |
+| ML4 | The recent-sign-in check uses the backend host clock (5-minute window). | Design constraint (M2-like) | Open; synchronised clock required in production |
+| ML5 | A student whose self-deletion stops after `disable_auth` cannot resume it; an administrator must (Incomplete deletions). No notification exists. | Recovery dependency | Open; monitoring needed |
+| ML6 | No rate limiting on `/api/account/delete` (L7). Password re-authentication happens in the browser against Firebase Authentication. | Abuse protection | Open; required before production |
+| ML7 | Production app has no self-delete; production rules still allow the owner's `users` delete (S5/W1 in production). | Production gap | Owner decision: keep as is until the production migration, or change rules via the change procedure |
+| ML8 | No rendered-component tests for `Profile.jsx` (E4). | Test-coverage gap | Open; owner browser plan above |
+| ML9 | Emulator results are not production evidence (KL8). | Test process | Recorded |
+| ML10 | **Defect found 27 Nov 2026; fixed in the working tree on 27 Nov 2026 (not committed).** `_renew_lock` treated a Firestore contention abort (`Aborted`) like a lost lock; since M3C renews Disable/Enable locks too, simultaneous requests could stop the legitimate operation with `LOCK_LOST` before any change (observed once in 4 full integration runs). **Root cause confirmed** with an emulator probe (isolation guards active): when six requests create the same lock at once and the winner renews immediately, the winner's conditional update was `Aborted` in 68 of 80 trials, and every time the lock was still the winner's with its update time unchanged (write not applied, ownership intact). **Fix:** `FailedPrecondition`/`NotFound` stay an immediate `LOCK_LOST` (genuine change of ownership); `Aborted` re-reads the lock and retries with the same precondition only while it is verified to be this operation's (`operationId`, `running`) and unchanged (update time), at most 4 attempts with 0.05/0.1/0.2 s backoff, then `LOCK_CONTENTION` (recorded, resumable); any other error is an unknown outcome resolved by one re-read (this attempt's lease stored → renewed; unchanged → `STORE_UNAVAILABLE`, no retry; otherwise `LOCK_LOST`); an unreadable lock → `STORE_UNAVAILABLE`; lease + grace already passed → `LEASE_EXPIRED` (recorded, resumable). Nothing is written without the precondition and nothing is taken over. **Evidence:** 12 deterministic unit tests (9 of them fail against the previous renewal); emulator test `test_12_lock_renewal_survives_simultaneous_lock_requests`; 3 full integration runs (81 `OK` each) and 10 repeats of the four concurrency tests (all `OK`): 0 `LOCK_LOST`, 0 exhausted retries, 261 contended renewals retried successfully. Emulator only; not verified on real Firebase. Residual: release, mark-incomplete and give-back writes of the lock are not retried (a contended release is reported as `lock_released: false`; not observed in these runs) | Correctness (spurious incomplete) | Resolved in emulator testing (working tree); production behaviour unverified |
+
+**Production blockers added by M3C** (none implemented; each needs separate approval): mounting
+`/api/account/delete` in production mode (with rate limiting, HTTPS/CORS and monitoring of incomplete deletions);
+enabling the strict student-data check in production (requires the backfill, FL5, and production registration of
+records, JL2); the production rules change removing the owner's `users` delete; a production check of M1, M3 and the
+recent-sign-in clock assumption. Everything listed under "Production blockers" in section L still applies.
+
+**Owner browser walkthrough (27 Nov 2026; local emulators; owner-reported): completed with partial coverage.**
+Mapping of the owner's 19 checkpoints onto the planned checks C1–C11:
+
+| Plan | Classification | Evidence (owner-reported, 27 Nov 2026) and limits |
+|---|---|---|
+| C1 Disable a signed-in student | **Partially verified** | S3 was signed in on Profile; the administrator disabled S3; navigating to Dashboard in the student's window signed the student out (checkpoints 1–3). A browser logout is **not** independent proof that the Firestore rules rejected the old token; the Disable audit record was not checked. |
+| C2 Enable; the old session | **Partially verified** | The account returned to Active (4); the signed-out browser stayed signed out (5); a fresh sign-in reached Profile (6). Old ID tokens and refresh tokens after Enable were **not** exercised manually (automated coverage: `test_02` of `test_account_lifecycle_emulator.py`, `test_01` of `test_account_actions_emulator.py`). |
+| C3 Manage Users description | **Verified** | The description reflects the available account actions (18). |
+| C4 Delete Account, then Cancel | **Not verified** | Not reported. |
+| C5 Wrong password | **Verified** | The incorrect password was rejected (8); an independent Auth emulator lookup confirmed the account still existed (9). |
+| C6 Self-deletion with the correct password | **Verified, with evidence limits** | The permanent-deletion warning and password confirmation were shown (7); deletion succeeded, signed the student out and opened Login (10); an independent Auth lookup confirmed the account was deleted (11); independent Firestore REST checks found `users/{uid}`, `results/{uid}` and `ai_assessments/{uid}` absent (12); tombstone `state=deleted`, version 7 (13); audit `operation=delete`, `requestedBy=student`, `outcome=completed`, actor uid = target uid (14). **Limits:** `results/{uid}` and `ai_assessments/{uid}` were already absent before the deletion, so their removal was **not** demonstrated manually (automated tests cover it); "gone from Manage Users" and "the old password is refused" were not reported separately. |
+| C7 Re-registration with the same email | **Verified** | Succeeded with a new uid (15); the deleted uid kept its tombstone (16); the new account shows Active in User Details (17). |
+| C8 Administrator self-deletion | **Not verified manually** | The administrator has no Profile page (19). The backend refusal is covered by automated tests only (unit route tests; integration `test_07`). |
+| C9 Disabled-record student tries to delete | **Not verified manually** | Automated tests only (unit route tests; integration `test_08`). |
+| C10 Incomplete self-deletion and recovery | **Not verified manually** | Automated tests only (unit; integration `test_09`); concurrency likewise automated only. |
+| C11 Production build shows "not available yet" | **Not verified manually** | The final audit inspected a production build (`DEV` false, emulator flag undefined, message present): build/code evidence, not a manual check. |
+
+**Not demonstrated manually:** Firestore rejection of an old token; old-token or refresh-token behaviour after Enable;
+concurrency and incomplete-operation recovery; removal of existing `results`/`ai_assessments` documents; the backend
+refusal of administrator self-deletion; the production Profile restriction.
+
+**Final post-implementation security audit (27 Nov 2026, read-only): PASS WITH LIMITATIONS.** No Critical or High
+findings. M3C is acceptable only as a local-emulator development milestone; it is **IMPLEMENTED BUT UNCOMMITTED** and
+**not production-ready**. ML10 is resolved in local-emulator testing and **not verified on real Firebase**.
+
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| A0 | Medium | The possible production read from the 26 Nov 2026 mutation-check incident: a Firebase app initialisation in the test process is **confirmed**; loading `backend/serviceAccountKey.json` is **inferred** from the code path; any production Firestore read is **unverified** (only `get()` reads on that path; no write). | Open (evidence gap, not a code defect). Owner may check, read-only, the service-account key's activity in the Google Cloud console and the Firestore usage metrics of `route2unikl` for 26 Nov 2026 |
+| A1 | Low | Documentation still described browser verification as not performed and recorded no audit result. | **Resolved** 27 Nov 2026 (this update) |
+| A2 | Low | Four test modules (`tests/test_auth.py`, `tests/test_firebase_config.py`, `tests/test_account_access_service.py`, `integration_tests/test_auth_emulator.py`) could be executed directly without the guards; direct key loaders (`google.oauth2.service_account`, `google.auth.load_credentials_*`) were not intercepted; gRPC sockets are not covered by the socket guard. | **Resolved** for direct execution and the direct key loaders (27 Nov 2026; see below). **Remains (documented limit):** gRPC opens its own sockets; the credential and app guards still prevent any production credential or app |
+| A3 | Low | Release, mark-incomplete and give-back writes of a lock are not retried on contention; a contended release is reported as `lock_released: false` and leaves "in progress" for ~35 minutes. Not observed. | Open (accepted for the emulator milestone) |
+| A4 | Low | A lock renewal with an unknown outcome can land after the operation stopped; the lock then stays "running" for ~35 minutes. Fails closed. | Open (accepted) |
+| A5 | Low | Self-deletion: the route checks the session against `sessionsValidAfter` before the lock; the service re-checks the account state under the lock, not the session. An administrator Disable + Enable inside that window would not stop it (own account, sign-in within 5 minutes). | Open (accepted) |
+| A6 | Info | A student who can still sign in can finish a deletion an administrator started; that resume is audited as `requestedBy: student`. | Open (accepted) |
+| A7 | Low (pre-existing) | `Profile.jsx` profile fetch has no error handling; a refused read leaves "Loading Profile…". | Open (outside M3C) |
+| A8 | Info | The recent-sign-in check accepts any sign-in within 5 minutes and uses the backend host clock (ML4). | Open (accepted) |
+| A9 | Low (pre-existing, E6) | Unused `React` import in `Profile.jsx`. | Open (outside M3C) |
+
+**A2 correction (27 Nov 2026).** `tests/isolation.require_guards()` fails closed unless the guards are in place
+(in emulator mode for integration modules). The four modules now import the `tests` (or `integration_tests`) package and
+call it right after their `sys.path` set-up, before any Firebase, Google or application import; an integration module
+executed outside the emulator environment is refused by the package's existing checks. The guards also refuse the direct
+key loaders `google.oauth2.service_account.Credentials.from_service_account_file` / `from_service_account_info` and
+`google.auth.load_credentials_from_file` / `load_credentials_from_dict`. Regression coverage (`tests/test_isolation.py`,
+8 new tests, 19 in all): every test module installs the guards at module level and never imports `main`; the four
+audited modules do so before any Firebase, Google or application import; no module captures the real credential
+functions by name; each of the 16 test modules, executed as a fresh direct execution (its own folder first on
+`sys.path`), verifies the guards first (stopping as UNGUARDED, without any attempt, if missing), then has the key,
+the direct loaders, a `route2unikl` app and production initialisation refused, with no app created; integration
+modules are refused without emulator settings, with the production project or a non-loopback host; a set
+`GOOGLE_APPLICATION_CREDENTIALS` refuses direct execution. The same probe run against the HEAD versions of the four
+modules reported UNGUARDED for each (the original gap, reproduced without any attempt). Running `python
+tests/test_auth.py`, `tests/test_firebase_config.py` and `tests/test_account_access_service.py` directly: 26, 31 and
+23 tests `OK`; `python integration_tests/test_auth_emulator.py` without the emulators: refused (IsolationError);
+inside `firebase emulators:exec`: 14 tests `OK`.
+
+| Suite (27 Nov 2026; guards active; scratch emulator ports) | Result |
+|---|---|
+| Backend unit | 303 `OK` after the A2 correction (295 at the audit); guard triggers only in `test_isolation.py`; no Firebase app left |
+| Emulator integration | 81 `OK` (audit run, and twice after the A2 correction); `test_auth_emulator.py` executed directly under the emulators: 14 `OK` |
+| ML10 concurrency (audit) | The four concurrency tests repeated 10 times: 10 of 10 `OK`; 0 `LOCK_LOST`; 187 contended renewals recovered; 0 exhausted |
+| Frontend unit | 173/173 (audit; frontend unchanged since) |
+| Lint of the changed frontend files | One error: the pre-existing unused `React` import in `Profile.jsx` (A9/E6) |
+| Production build | Passed (audit); no AI-provider reference in the bundle |
+| Firestore rules | 44/44 production; 104/104 experimental (audit; rules unchanged since) |
+| Skipped | None. No mutation experiment was re-run; no production request; no credential loaded |
+
+**Remaining production blockers:** Mounting the account-action and self-deletion routes in production with rate limiting, HTTPS/CORS and monitoring of
+incomplete operations (L7, ML6); the access-record backfill (FL5) and production registration that creates records
+(JL2); the `auth_time` canary and guard deployment (FL1, FL2); the production rules change removing the owner's
+`users` delete (S5/W1, DL4); real-Firebase evidence for M1/ML1, M2, M3 (including `/api/auth/me`), ML10 and the clock
+assumption (ML4); retention (DL6) and administrator-claim control (DL1); S1, S7, S8, S10, S11; the owner's decision D9
+on the production Profile restriction.
 
 ### Future Admin Module report
 

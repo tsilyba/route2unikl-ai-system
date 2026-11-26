@@ -125,7 +125,7 @@ service cloud.firestore {
     // ------------------------------------------------------- users/{uid}
     // Written by: Register.jsx (create), ProfileIngestion / ManualGradeEntry /
     // UploadResults / DummyAI / Recommendation / PreparationPlan / Profile
-    // (update), Profile (delete). Read by the owner only.
+    // (update). Read by the owner only. Deleted only by the backend (M3C).
 
     function isValidNewUser() {
       let data = request.resource.data;
@@ -170,15 +170,14 @@ service cloud.firestore {
       allow get: if isActiveOwner(uid);
       allow create: if isActiveOwner(uid) && isValidNewUser();
       allow update: if isActiveOwner(uid) && isValidUserUpdate();
-      // Existing "delete account" behaviour (Profile.jsx). Known limitations,
-      // accepted for Milestone 1.5B (to be replaced by a protected backend
-      // account-deletion process that also removes associated records):
-      // - the owner's results / ai_assessments documents are not cleaned up;
-      // - deleting and re-creating this document lets a student change their
-      //   own student type (role) and reset createdAt. It can NOT grant Admin:
-      //   create still only accepts 'spm_leaver' / 'form_4_5' and no extra
-      //   fields, and Admin access relies solely on the custom claim.
-      allow delete: if isActiveOwner(uid);
+      // delete: not allowed from any browser (M3C). Account deletion, for an
+      // administrator or the student themselves, is the protected backend
+      // workflow (Admin SDK), which removes users / results / ai_assessments
+      // in one atomic batch fenced by the account_access record. This closes
+      // S4 (partial browser deletion) and S5/W1 (deleting and re-creating
+      // the profile to change the student type or reset createdAt) under
+      // this guard. The production firestore.rules still allow the owner's
+      // delete until a rules change is approved through the change procedure.
       // list: not allowed for anyone (no browser enumeration of students).
     }
 

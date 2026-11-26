@@ -42,6 +42,12 @@ describe('Admin module configuration', () => {
     }
   });
 
+  test('Manage Users is no longer described as read-only (M3C)', () => {
+    const users = ADMIN_NAV_ITEMS.find((item) => item.key === 'users');
+    assert.doesNotMatch(users.description, /read-only/i);
+    assert.match(users.description, /disable, enable or delete student accounts \(local emulator only\)/);
+  });
+
   test('the configuration cannot be modified at runtime', () => {
     assert.ok(Object.isFrozen(ADMIN_NAV_ITEMS));
     assert.ok(ADMIN_NAV_ITEMS.every((item) => Object.isFrozen(item)));

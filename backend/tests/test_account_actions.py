@@ -365,7 +365,9 @@ class ViewTests(ActionTestBase):
             (True, {"state": "deleting", "version": 3}, None, "deletion_incomplete", ["delete"]),
             (True, {"state": "deleted", "version": 4}, None, "deletion_incomplete", ["delete"]),
             (False, ACTIVE, ("disable", "running", 60), "in_progress", []),
-            (False, ACTIVE, ("disable", "running", -1), "incomplete", ["disable"]),
+            # M3C (M1): a running Disable/Enable lock is taken over only after its lease AND the grace period.
+            (False, ACTIVE, ("disable", "running", -1), "in_progress", []),
+            (False, ACTIVE, ("disable", "running", -(actions.TAKEOVER_GRACE_SECONDS + 60)), "incomplete", ["disable"]),
             (False, DISABLED, ("disable", "incomplete", None), "incomplete", ["disable"]),
             (True, DISABLED, ("enable", "incomplete", None), "incomplete", ["enable", "disable"]),
         ]
@@ -396,7 +398,8 @@ class ViewTests(ActionTestBase):
         self.assertEqual(described["record"], {"status": "valid", "state": "active", "version": 1,
                                                "sessions_valid_after": "2026-11-26T01:02:03Z"})
         self.assertEqual(set(described["operation"]), {"operation_id", "operation", "status", "failed_step", "reason",
-                                                       "started_at", "updated_at", "started_by_you"})
+                                                       "started_at", "updated_at", "resumable_after", "started_by_you"})
+        self.assertIsNone(described["operation"]["resumable_after"], "only a running lock has one")
         self.assertFalse(described["operation"]["started_by_you"])
         self.assertNotIn(EMAIL, repr(described))
         self.assertNotIn(OTHER_ADMIN, repr(described), "another administrator's uid is not disclosed")
@@ -665,9 +668,14 @@ class LockAndAuditTests(ActionTestBase):
             self.assert_error(actions.OPERATION_IN_PROGRESS, action, TARGET, ADMIN_UID)
         self.assertEqual(self.changes(), [])
 
-    def test_an_expired_lease_counts_as_incomplete_and_can_be_resumed(self):
+    def test_an_expired_lease_counts_as_incomplete_only_after_the_grace_period(self):
+        # M3C (M1): an expired lease alone no longer allows a takeover; the operation may still have a Firebase
+        # call in flight. After lease + grace it counts as incomplete and is resumed.
         self.student(record=ACTIVE)
         self.put_lock("disable", status="running", lease_seconds=-5)
+        self.assert_error(actions.OPERATION_IN_PROGRESS, actions.disable_account, TARGET, ADMIN_UID)
+        self.assertEqual(self.changes(), [])
+        self.put_lock("disable", status="running", lease_seconds=-(actions.TAKEOVER_GRACE_SECONDS + 5))
         result = actions.disable_account(TARGET, ADMIN_UID)
         self.assertEqual((result.view.state, result.resumed_operation_id), ("disabled", "earlier-op"))
 
